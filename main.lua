@@ -27,6 +27,7 @@ function init()
 	spawnEnemy()
 	love.graphics.setFont(Window.font, 15)
 	spawnParticles(20);
+	turnShaders(true)
 end
 
 function love.load()
@@ -47,15 +48,15 @@ function love.load()
 
 	--[[ Game ]]--
 		Game = {
-			isActive = true,
-			needReset = false,
+			isActive = false,
+			needReset = true,
 			version = "Alpha v0.1",
 		}
 	--[[ ---- ]]--
 
 	--[[ Menu ]]--
 		Menu = {
-			isActive = false,
+			isActive = true,
 			buttons = {
 				start = { 
 					x = Window.width / 2, 
@@ -135,18 +136,35 @@ function love.load()
 		--fps = fpsGraph.createGraph()
 	--[[ -------- ]]--
 
-	init();
-	turnShaders(false)
+	
 	love.mouse.setVisible( false )
 
 	local size = Environment.Map.maxX * Environment.Map.maxY
 	Environment.Map.spriteBatch = love.graphics.newSpriteBatch(Window.background, size)
+
+	init();
  end
 
  function love.update( dt )
 		Mouse.x = love.mouse.getX()
 		Mouse.y = love.mouse.getY()
 	--[[ ----- - ----- ]]--
+
+		if(Mouse.x >= Window.width) then
+			love.mouse.setPosition(Window.width - 10, Mouse.y);
+		end
+
+		if(Mouse.x <= 10) then
+			love.mouse.setPosition(10, Mouse.y);
+		end
+
+		if(Mouse.y >= Window.height) then
+			love.mouse.setPosition(Mouse.x, Window.height - 10);
+		end
+
+		if(Mouse.y <= 10) then
+			love.mouse.setPosition(Mouse.x, 10);
+		end
 
  	if(Game.isActive) then
  			Player.angle = math.atan2(love.mouse.getY()-Player.y, love.mouse.getX()-Player.x);
@@ -241,6 +259,22 @@ function love.load()
 		    	Player.x = Player.x + Player.speed * dt;
 		    end
 
+		    if(Player.x >= Window.width - Player.width) then
+		    	Player.x = Window.width - Player.width
+		    end
+
+		    if(Player.x <= 0) then
+		    	Player.x = 0
+		    end
+
+		    if(Player.y >= Window.height - Player.height) then
+		    	Player.y = Window.height - Player.height
+		    end
+
+		    if (Player.y <= 0) then
+		    	Player.y = 0
+		    end
+
 		    for j, k in ipairs(Enemy.instances) do
 		    	--k.x = k.x + ((Player.x - k.x) * 1000)
 		    	--k.y = k.y + ((Player.y - k.y) * 1000)
@@ -268,7 +302,7 @@ function love.load()
 			    end
 		    end
 
-			setupSpriteBatch()
+			
 		--[[ -------- ]]--
 			--fpsGraph.updateFPS(fps, dt)
 	else
@@ -295,6 +329,8 @@ function love.load()
 			Menu.buttons.quit.height = 49
 		end
 	end
+
+	setupSpriteBatch()
  end
 
  function love.draw()
@@ -398,10 +434,10 @@ function love.load()
 
 		love.graphics.draw(Menu.buttons.start.sprite, Menu.buttons.start.x - 30, Menu.buttons.start.y, 0, 1, 1)
 		if(Game.needReset == false) then Menu.buttons.start.text = "Resume" else Menu.buttons.start.text = "Start" end
-		love.graphics.print(Menu.buttons.start.text, Menu.buttons.start.x - 27, Menu.buttons.start.y - 26, 0, 1, 1);
+		love.graphics.print(Menu.buttons.start.text, Menu.buttons.start.x + (Menu.buttons.start.width/6) - 9, Menu.buttons.start.y + 8, 0, 1, 1);
 
 		love.graphics.draw(Menu.buttons.quit.sprite, Menu.buttons.quit.x - 30, Menu.buttons.quit.y, 0, 1, 1)
-		love.graphics.print(Menu.buttons.quit.text, Menu.buttons.quit.x - 18, Menu.buttons.quit.y - 26, 0, 1, 1);
+		love.graphics.print(Menu.buttons.quit.text, Menu.buttons.quit.x + (Menu.buttons.quit.width/4) - 2, Menu.buttons.quit.y + 8, 0, 1, 1);
 
 		love.graphics.setColor(0, 0, 0, 50);
 		--love.graphics.circle("line", Mouse.x + 3, Mouse.y + 2, 11, 100)
@@ -437,15 +473,16 @@ end
 
 function love.keyreleased( key )
 	if (key == "escape") then
-
-		if(Menu.isActive) then
-				Game.isActive = true
-				Menu.isActive = false
-				turnShaders(false)
-		else
-				Game.isActive = false
-				Menu.isActive = true
-				turnShaders(true)
+		if(not Game.needReset) then
+			if(Menu.isActive) then
+					Game.isActive = true
+					Menu.isActive = false
+					turnShaders(false)
+			else
+					Game.isActive = false
+					Menu.isActive = true
+					turnShaders(true)
+			end
 		end
 		--love.event.quit()
 	end
@@ -479,28 +516,30 @@ function love.mousepressed( x, y, button )
 			Player.gun.rounds = Player.gun.rounds - 1
 		end
 	end
+
+end
+
+function love.mousereleased( x, y, button )
 	if(Menu.isActive) then
-		if button == l then
-			if(rectangleCollision(x, y, 10, 10, Menu.button.start.x, Menu.button.start.y, Menu.button.start.width, Menu.button.start.height)) then
-				if Menu.button.start.text == "Resume" then
+		if button == 1 then
+			if(rectangleCollision(x, y, 10, 10, Menu.buttons.start.x, Menu.buttons.start.y, Menu.buttons.start.width, Menu.buttons.start.height)) then
+				if Menu.buttons.start.text == "Resume" then
 					Menu.isActive = false
 					Game.isActive = true
-				elseif Menu.button.start.text == "Start" then
+					turnShaders(false)
+				elseif Menu.buttons.start.text == "Start" then
 					Menu.isActive = false
 					Game.isActive = true
+					turnShaders(false)
 					Game.needReset = false
 				end
 			end
 
-			if(rectangleCollision(x, y, 10, 10, Menu.button.quit.x, Menu.button.quit.y, Menu.button.quit.width, Menu.button.quit.height)) then
+			if(rectangleCollision(x, y, 10, 10, Menu.buttons.quit.x, Menu.buttons.quit.y, Menu.buttons.quit.width, Menu.buttons.quit.height)) then
 				love.event.quit()
 			end
 		end
 	end
-end
-
-function love.mousereleased( x, y, button )
-
 end
 
 --[[
