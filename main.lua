@@ -51,6 +51,7 @@ function love.load()
 			isActive = false,
 			needReset = true,
 			version = "Alpha v0.1",
+			score = 0,
 		}
 	--[[ ---- ]]--
 
@@ -150,7 +151,7 @@ function love.load()
 		Mouse.y = love.mouse.getY()
 	--[[ ----- - ----- ]]--
 
-		if(Mouse.x >= Window.width) then
+		if(Mouse.x >= Window.width - 10) then
 			love.mouse.setPosition(Window.width - 10, Mouse.y);
 		end
 
@@ -158,7 +159,7 @@ function love.load()
 			love.mouse.setPosition(10, Mouse.y);
 		end
 
-		if(Mouse.y >= Window.height) then
+		if(Mouse.y >= Window.height - 10) then
 			love.mouse.setPosition(Mouse.x, Window.height - 10);
 		end
 
@@ -196,11 +197,12 @@ function love.load()
 		        for n, m in ipairs(Enemy.instances) do
 			        if(circle_and_rectangle_overlap(o.x, o.y, 4, m.x - (m.width / 2), m.y - (m.height / 2), m.width, m.height))then
 			        	table.remove(Player.bullets, i);
-			        	m.health = m.health - love.math.random(15, 45);
-
+			        	local rand = love.math.random(10, 75);
+			        	m.health = m.health - rand;
+			        	Game.score = Game.score + math.floor(rand/2);
 	    				if(m.health <= 0) then
 	    					table.remove(Enemy.instances, n);
-
+	    					
 	    					if(maybe(15) == true) then
 	    						spawnPickup(m.x + (m.width/2) - 20, m.y + (m.height/2) - 20)
 	    					end
@@ -360,12 +362,14 @@ function love.load()
 			k.angle = math.atan2(Player.y-k.y, Player.x-k.x);
 			love.graphics.draw(k.sprite, k.x, k.y, k.angle, 1, 1, k.width/2, k.height/2);
 
+			local eHlth = (k.health*100)/k.maxHealth;
+
 			love.graphics.setColor(0, 0, 0, 50);
-			love.graphics.rectangle("fill", k.x - 23, k.y + k.height - 7, k.health / 2, 10)
+			love.graphics.rectangle("fill", k.x - 23, k.y + k.height - 7, eHlth / 2, 10)
 			love.graphics.setColor(224, 62, 62, 255);
-			love.graphics.rectangle("fill", k.x - 25, k.y + k.height - 10, k.health / 2, 10)
+			love.graphics.rectangle("fill", k.x - 25, k.y + k.height - 10, eHlth / 2, 10)
 			love.graphics.setColor(165, 92, 92, 255);
-			love.graphics.rectangle("line", (k.x + (k.health / 2)) - 25, k.y + k.height - 10, (100 - k.health)/2, 10)
+			love.graphics.rectangle("line", (k.x + (eHlth / 2)) - 25, k.y + k.height - 10, (100 - eHlth)/2, 10)
 			love.graphics.setColor(255, 255, 255, 255);
 			--love.graphics.setColor(0, 0, 0, 255);
 	 		--love.graphics.rectangle("line", k.x, k.y, k.width, k.height)
@@ -421,6 +425,11 @@ function love.load()
 			love.graphics.setColor(255, 255, 255, 255);
 			love.graphics.print("Reloading...", 670, Window.height - 73);
 		end
+
+		love.graphics.setColor(0, 0, 0, 50);
+		love.graphics.print("Score "..Game.score, 96, Window.height - 106);
+		love.graphics.setColor(255, 255, 255, 255);
+		love.graphics.print("Score "..Game.score, 93, Window.height - 108);
 	end
 
 	if (Menu.isActive) then
@@ -710,13 +719,32 @@ function spawnEnemy()
 	local eSprite = "/src/survivor1_hold.png";
 	local eSpeed = love.math.random(15, 40);
 
+	local eHealth = 150;
+
+	local enemyType = love.math.random(0, 2);
+
+	if enemyType == 0 then
+		eSprite = "/src/survivor1_hold.png";
+		eSpeed = love.math.random(15, 40);
+		eHealth = 150;
+	elseif enemyType == 1 then
+		eSprite = "/src/robot1_hold.png";
+		eSpeed = love.math.random(30, 50);
+		eHealth = 225;
+	elseif enemyType == 2 then
+		eSprite = "/src/manOld_hold.png";
+		eSpeed = love.math.random(10, 25);
+		eHealth = 100;
+	end
+
 	table.insert(Enemy.instances, {
 		x = eX,
 		y = eY,
 		width = 37,
 		height = 43,
 		angle = 0,
-		health = 100,
+		health = eHealth,
+		maxHealth = eHealth,
 		speed = eSpeed,
 		sprite = love.graphics.newImage( eSprite ),
 	});
