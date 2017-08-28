@@ -85,7 +85,7 @@ function love.load()
 	--[[ Pickups ]]--
 		Pickups = { 
 			instances = {},
-			respawnTime = 10,
+			respawnTime = 10.0,
 		}
 	--[[ ------- ]]--
 
@@ -123,10 +123,16 @@ function love.load()
 			Player.gun.heat = math.max(0, Player.gun.heat - dt);
 			if(Player.gun.reloadTime > 0.0) then Player.gun.reloadTime = math.max(0, Player.gun.reloadTime - dt); end
 			Enemy.respawnTime = math.max(0, Enemy.respawnTime - dt);
+			if(Pickups.respawnTime > 0.0) then Pickups.respawnTime = math.max(0, Pickups.respawnTime - dt); end
 
 			if(Enemy.respawnTime <= 0.0) then
 				spawnEnemy();
 				Enemy.respawnTime = 5.0;
+			end
+
+			if(Pickups.respawnTime == 0.0) then
+				spawnPickup();
+				Pickups.respawnTime = -0.1
 			end
 
 			if(Player.gun.reloadTime == 0.0)then
@@ -159,6 +165,18 @@ function love.load()
 		        or (o.y < -10) or (o.y > love.graphics.getHeight() + 10) then
 		            table.remove(Player.bullets, i)
 		        end
+		    end
+
+		    for g, h in ipairs(Pickups.instances) do
+		    	if rectangleCollision(Player.x, Player.y, Player.width, Player.height, h.x, h.y, h.width, h.height) then
+		    		if(h.pickup == 0) then
+		    			Player.lifes.amount = Player.lifes.amount + 1;
+		    		elseif h.pickup == 1 then
+		    			Player.gun.rounds = 10
+		    		end
+		    		table.remove(Pickups.instances, g);
+		    		Pickups.respawnTime = 10.0
+		    	end
 		    end
 
 		    if (love.keyboard.isDown("w") or love.keyboard.isDown("up")) then
@@ -214,6 +232,13 @@ function love.load()
  	local angle = math.atan2(love.mouse.getY()-Player.y, love.mouse.getX()-Player.x);
 
  	love.graphics.draw(Environment.Map.spriteBatch);
+
+ 	for g, h in ipairs(Pickups.instances) do
+ 		love.graphics.setColor(0, 0, 0, 50);
+ 		love.graphics.draw(h.sprite, h.x + 3, h.y + 2, h.angle, 0.65, 0.65, h.width/2, h.height/2)
+ 		love.graphics.setColor(255, 255, 255, 255);
+ 		love.graphics.draw(h.sprite, h.x, h.y, h.angle, 0.65, 0.65, h.width/2, h.height/2)
+ 	end
 
  	for t, z in ipairs(Environment.Map.particles) do
  		love.graphics.draw(z.sprite, z.x, z.y, z.angle, 1, 1, z.width/2, z.height/2)
@@ -443,6 +468,36 @@ function createParticle()
 		width = 64,
 		height = 64,
 		angle = pAngle,
+		sprite = love.graphics.newImage(pSprite),
+	});
+end
+
+function spawnPickup()
+	local pX = love.math.random(-32, Window.width + 32);
+	local pY = love.math.random(-32, Window.height + 32);
+	local pType = love.math.random(0, 1);
+
+	local pSprite = nil;
+	local pWidth = 0;
+	local pHeight = 0;
+	pType = 1;
+	if(pType == 0) then
+		pSprite = "/src/genericItem_color_102.png";
+		pWidth = 117
+		pHeight = 117
+	elseif(pType == 1) then
+		pSprite = "/src/genericItem_color_089.png";
+		pWidth = 40
+		pHeight = 40
+	end
+
+	table.insert(Pickups.instances, {
+		x = pX,
+		y = pY,
+		width = pWidth,
+		height = pHeight,
+		angle = 0,
+		pickup = pType,
 		sprite = love.graphics.newImage(pSprite),
 	});
 end
