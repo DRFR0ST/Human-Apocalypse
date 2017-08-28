@@ -20,6 +20,8 @@
  |_|  |_|\__,_|_|_| |_|
 
 ]]--
+
+local shine = require '/lib/shine'
                        
 function init()
 	spawnEnemy()
@@ -51,6 +53,32 @@ function love.load()
 		}
 	--[[ ---- ]]--
 
+	--[[ Menu ]]--
+		Menu = {
+			isActive = false,
+			buttons = {
+				start = { 
+					x = Window.width / 2, 
+					y = 64 * 3 + 128, 
+					width = 190,
+					height = 49,
+					text = "Start",
+					sprite = love.graphics.newImage("/src/button_bg.png")
+				},
+
+				quit = { 
+					x = Window.width / 2, 
+					y = 64 * 3 + 128 * 2, 
+					width = 190,
+					height = 49,
+					text = "Quit",
+					sprite = love.graphics.newImage("/src/button_bg.png")
+				},
+
+			},
+		}
+	--[[ ---- ]]--
+
 	--[[ Player ]]--
 		Player = {
 			sprite = love.graphics.newImage( "/src/zoimbie1_gun.png" ),
@@ -59,6 +87,7 @@ function love.load()
 			width = 49,
 			height = 43,
 			speed = 200,
+			angle = 0,
 			lifes = {
 				amount = 5,
 			},
@@ -85,7 +114,7 @@ function love.load()
 	--[[ Pickups ]]--
 		Pickups = { 
 			instances = {},
-			respawnTime = 10.0,
+			respawnTime = love.math.random(10.0, 30.0),
 		}
 	--[[ ------- ]]--
 
@@ -107,33 +136,35 @@ function love.load()
 	--[[ -------- ]]--
 
 	init();
-
+	turnShaders(false)
 	love.mouse.setVisible( false )
 
 	local size = Environment.Map.maxX * Environment.Map.maxY
-	Environment.Map.spriteBatch = love.graphics.newSpriteBatch(love.graphics.newImage( "/src/tile_46.png" ), size)
+	Environment.Map.spriteBatch = love.graphics.newSpriteBatch(Window.background, size)
  end
 
  function love.update( dt )
+		Mouse.x = love.mouse.getX()
+		Mouse.y = love.mouse.getY()
+	--[[ ----- - ----- ]]--
+
  	if(Game.isActive) then
-			Mouse.x = love.mouse.getX()
-			Mouse.y = love.mouse.getY()
-		--[[ ----- - ----- ]]--
+ 			Player.angle = math.atan2(love.mouse.getY()-Player.y, love.mouse.getX()-Player.x);
 
 			Player.gun.heat = math.max(0, Player.gun.heat - dt);
 			if(Player.gun.reloadTime > 0.0) then Player.gun.reloadTime = math.max(0, Player.gun.reloadTime - dt); end
 			Enemy.respawnTime = math.max(0, Enemy.respawnTime - dt);
-			if(Pickups.respawnTime > 0.0) then Pickups.respawnTime = math.max(0, Pickups.respawnTime - dt); end
+			-- if(Pickups.respawnTime > 0.0) then Pickups.respawnTime = math.max(0, Pickups.respawnTime - dt); end
 
 			if(Enemy.respawnTime <= 0.0) then
 				spawnEnemy();
 				Enemy.respawnTime = 5.0;
 			end
 
-			if(Pickups.respawnTime == 0.0) then
-				spawnPickup();
-				Pickups.respawnTime = -0.1
-			end
+			-- if(Pickups.respawnTime == 0.0) then
+			-- 	spawnPickup();
+			-- 	Pickups.respawnTime = -0.1
+			-- end
 
 			if(Player.gun.reloadTime == 0.0)then
 				Player.gun.rounds = 6;
@@ -151,6 +182,10 @@ function love.load()
 
 	    				if(m.health <= 0) then
 	    					table.remove(Enemy.instances, n);
+
+	    					if(maybe(15) == true) then
+	    						spawnPickup(m.x + (m.width/2) - 20, m.y + (m.height/2) - 20)
+	    					end
 	    				end
 			        end
 			    end
@@ -175,7 +210,18 @@ function love.load()
 		    			Player.gun.rounds = 10
 		    		end
 		    		table.remove(Pickups.instances, g);
-		    		Pickups.respawnTime = 10.0
+		    		Pickups.respawnTime = love.math.random(10.0, 30.0)
+		    	end
+
+		    	h.angle = h.angle + 0.5 * dt
+
+		    	if(h.resizeDir == "up") then h.resize = h.resize + 0.5 * dt end
+		    	if(h.resizeDir == "down") then h.resize = h.resize - 0.5 * dt end
+
+		    	if(h.resize >= 1.0) then
+		    		h.resizeDir = "down"
+		    	elseif(h.resize <= 0.55) then
+		    		h.resizeDir = "up"
 		    	end
 		    end
 
@@ -225,97 +271,147 @@ function love.load()
 			setupSpriteBatch()
 		--[[ -------- ]]--
 			--fpsGraph.updateFPS(fps, dt)
+	else
+		local isCollidingStart = rectangleCollision(Mouse.x, Mouse.y , 15, 15, Menu.buttons.start.x, Menu.buttons.start.y, Menu.buttons.start.width, Menu.buttons.start.height)
+		local isCollidingQuit = rectangleCollision(Mouse.x, Mouse.y , 15, 15, Menu.buttons.quit.x, Menu.buttons.quit.y, Menu.buttons.quit.width, Menu.buttons.quit.height)
+
+		if(isCollidingStart and Menu.buttons.start.height == 49) then
+			Menu.buttons.start.sprite = love.graphics.newImage("/src/button_bg_active.png")
+			Menu.buttons.start.y = Menu.buttons.start.y + 4
+			Menu.buttons.start.height = 45
+		elseif(not isCollidingStart and Menu.buttons.start.height == 45) then
+			Menu.buttons.start.sprite = love.graphics.newImage("/src/button_bg.png")
+			Menu.buttons.start.y = Menu.buttons.start.y - 4
+			Menu.buttons.start.height = 49
+		end
+
+		if(isCollidingQuit and Menu.buttons.quit.height == 49) then
+			Menu.buttons.quit.sprite = love.graphics.newImage("/src/button_bg_active.png")
+			Menu.buttons.quit.y = Menu.buttons.quit.y + 4
+			Menu.buttons.quit.height = 45
+		elseif(not isCollidingQuit and Menu.buttons.quit.height == 45) then
+			Menu.buttons.quit.sprite = love.graphics.newImage("/src/button_bg.png")
+			Menu.buttons.quit.y = Menu.buttons.quit.y - 4
+			Menu.buttons.quit.height = 49
+		end
 	end
  end
 
  function love.draw()
- 	local angle = math.atan2(love.mouse.getY()-Player.y, love.mouse.getX()-Player.x);
+ 	post_effect:draw(function()
+	 	love.graphics.draw(Environment.Map.spriteBatch);
 
- 	love.graphics.draw(Environment.Map.spriteBatch);
+	 	for t, z in ipairs(Environment.Map.particles) do
+	 		love.graphics.draw(z.sprite, z.x, z.y, z.angle, 1, 1, z.width/2, z.height/2)
+	 	end
 
- 	for g, h in ipairs(Pickups.instances) do
- 		love.graphics.setColor(0, 0, 0, 50);
- 		love.graphics.draw(h.sprite, h.x + 3, h.y + 2, h.angle, 0.65, 0.65, h.width/2, h.height/2)
- 		love.graphics.setColor(255, 255, 255, 255);
- 		love.graphics.draw(h.sprite, h.x, h.y, h.angle, 0.65, 0.65, h.width/2, h.height/2)
- 	end
+	 	for g, h in ipairs(Pickups.instances) do
+	 		love.graphics.setColor(0, 0, 0, 50);
+	 		love.graphics.draw(h.sprite, h.x + 3, h.y + 2, h.angle, h.resize, h.resize, h.width/2, h.height/2)
+	 		love.graphics.setColor(255, 255, 255, 255);
+	 		love.graphics.draw(h.sprite, h.x, h.y, h.angle, h.resize, h.resize, h.width/2, h.height/2)
+	 	end
 
- 	for t, z in ipairs(Environment.Map.particles) do
- 		love.graphics.draw(z.sprite, z.x, z.y, z.angle, 1, 1, z.width/2, z.height/2)
- 	end
+		for i, o in ipairs(Player.bullets) do
+			love.graphics.setColor(70, 70, 70, 225)
+			love.graphics.circle('fill', o.x, o.y, 5, 100)
+			love.graphics.setColor(86, 83, 83, 225)
+			love.graphics.circle('fill', o.x, o.y, 4, 100)
+		end
 
-	for i, o in ipairs(Player.bullets) do
-		love.graphics.setColor(70, 70, 70, 225)
-		love.graphics.circle('fill', o.x, o.y, 5, 100)
-		love.graphics.setColor(86, 83, 83, 225)
-		love.graphics.circle('fill', o.x, o.y, 4, 100)
+		love.graphics.setColor(255, 255, 255, 255)
+		for j, k in ipairs(Enemy.instances) do
+			k.angle = math.atan2(Player.y-k.y, Player.x-k.x);
+			love.graphics.draw(k.sprite, k.x, k.y, k.angle, 1, 1, k.width/2, k.height/2);
+
+			love.graphics.setColor(0, 0, 0, 50);
+			love.graphics.rectangle("fill", k.x - 23, k.y + k.height - 7, k.health / 2, 10)
+			love.graphics.setColor(224, 62, 62, 255);
+			love.graphics.rectangle("fill", k.x - 25, k.y + k.height - 10, k.health / 2, 10)
+			love.graphics.setColor(165, 92, 92, 255);
+			love.graphics.rectangle("line", (k.x + (k.health / 2)) - 25, k.y + k.height - 10, (100 - k.health)/2, 10)
+			love.graphics.setColor(255, 255, 255, 255);
+			--love.graphics.setColor(0, 0, 0, 255);
+	 		--love.graphics.rectangle("line", k.x, k.y, k.width, k.height)
+		end
+
+		if( Menu.isActive == false) then
+			love.graphics.setColor(0, 0, 0, 50);
+			love.graphics.circle("line", Mouse.x + 3, Mouse.y + 2, 10.7, 100)
+			love.graphics.setColor(255, 255, 255, 255);
+			love.graphics.circle("line", Mouse.x, Mouse.y, 11, 100)
+		end
+
+	 	love.graphics.draw(Player.sprite, Player.x, Player.y, Player.angle, 1, 1, Player.width/2, Player.height/2);
+
+	 	--local greyscale = gradient { direction = 'horizontal'; {0, 0, 0, 0}; {0, 0, 0, 100}}
+
+	 	--drawinrect(greyscale, 0, Window.height - 60, Window.width, 60);
+
+	end)
+
+
+		local healthIcon = love.graphics.newImage("src/plus.png");
+		local ammoIcon = love.graphics.newImage("src/fightJ.png");
+
+	if(Menu.isActive == false)	then	
+		love.graphics.setColor(255, 255, 255, 255);
+		love.graphics.draw(love.graphics.newImage("src/btm_bar.png"), 100, Window.height - 96, 0, 0.8, 0.8)
+
+		for lfs=1,Player.lifes.amount,1 do
+			local elevation = (45 * lfs);
+			love.graphics.setColor(0, 0, 0, 50);
+			love.graphics.draw(healthIcon, 78 + elevation, Window.height - 75, 0, 0.35, 0.35)
+			love.graphics.setColor(255, 255, 255, 255);
+			love.graphics.draw(healthIcon, 75 + elevation, Window.height - 77, 0, 0.35, 0.35)
+		end
+
+		for amo=1,Player.gun.rounds,1 do
+			local elevation = (45 * amo);
+			love.graphics.setColor(0, 0, 0, 50);
+			love.graphics.draw(ammoIcon, 913 - elevation, Window.height - 75, 0, 0.35, 0.35)
+			love.graphics.setColor(255, 255, 255, 255);
+			love.graphics.draw(ammoIcon, 910 - elevation, Window.height - 77, 0, 0.35, 0.35)
+		end
+
+		if (Player.gun.rounds <= 0 and Player.gun.canReload) then
+			love.graphics.setColor(0, 0, 0, 50);
+			love.graphics.print("Press R to reload!", 633, Window.height - 71);
+			love.graphics.setColor(255, 255, 255, 255);
+			love.graphics.print("Press R to reload!", 630, Window.height - 73);
+		elseif Player.gun.canReload == false then
+			love.graphics.setColor(0, 0, 0, 50);
+			love.graphics.print("Reloading...", 673, Window.height - 71);
+			love.graphics.setColor(255, 255, 255, 255);
+			love.graphics.print("Reloading...", 670, Window.height - 73);
+		end
 	end
 
-	love.graphics.setColor(255, 255, 255, 255)
-	for j, k in ipairs(Enemy.instances) do
-		k.angle = math.atan2(Player.y-k.y, Player.x-k.x);
-		love.graphics.draw(k.sprite, k.x, k.y, k.angle, 1, 1, k.width/2, k.height/2);
+	if (Menu.isActive) then
+		-- for i = 0, Menu.buttons.count, 1 do
+		-- 	love.g
+		-- end
+		love.graphics.setColor(0, 0, 0, 50);
+		love.graphics.print(Game.version, Window.width - 127, 9);
+		love.graphics.setColor(255, 255, 255, 255);
+		love.graphics.print(Game.version, Window.width - 130, 7);
+
+		love.graphics.draw(Menu.buttons.start.sprite, Menu.buttons.start.x - 30, Menu.buttons.start.y, 0, 1, 1)
+		if(Game.needReset == false) then Menu.buttons.start.text = "Resume" else Menu.buttons.start.text = "Start" end
+		love.graphics.print(Menu.buttons.start.text, Menu.buttons.start.x - 27, Menu.buttons.start.y - 26, 0, 1, 1);
+
+		love.graphics.draw(Menu.buttons.quit.sprite, Menu.buttons.quit.x - 30, Menu.buttons.quit.y, 0, 1, 1)
+		love.graphics.print(Menu.buttons.quit.text, Menu.buttons.quit.x - 18, Menu.buttons.quit.y - 26, 0, 1, 1);
 
 		love.graphics.setColor(0, 0, 0, 50);
-		love.graphics.rectangle("fill", k.x - 23, k.y + k.height - 7, k.health / 2, 10)
-		love.graphics.setColor(224, 62, 62, 255);
-		love.graphics.rectangle("fill", k.x - 25, k.y + k.height - 10, k.health / 2, 10)
-		love.graphics.setColor(165, 92, 92, 255);
-		love.graphics.rectangle("line", (k.x + (k.health / 2)) - 25, k.y + k.height - 10, (100 - k.health)/2, 10)
+		--love.graphics.circle("line", Mouse.x + 3, Mouse.y + 2, 11, 100)
+		love.graphics.draw(love.graphics.newImage("/src/cursorHand_grey.png"), Mouse.x + 3, Mouse.y + 2, 0, 0.95, 0.95, 27/2, 28/2)
 		love.graphics.setColor(255, 255, 255, 255);
-		--love.graphics.setColor(0, 0, 0, 255);
- 		--love.graphics.rectangle("line", k.x, k.y, k.width, k.height)
+		--love.graphics.circle("line", Mouse.x, Mouse.y, 10.7, 100)
+		love.graphics.draw(love.graphics.newImage("/src/cursorHand_grey.png"), Mouse.x + 3, Mouse.y + 2, 0, 1, 1, 27/2, 28/2)
 	end
 
-	love.graphics.setColor(0, 0, 0, 50);
-	love.graphics.circle("line", Mouse.x + 3, Mouse.y + 2, 11, 100)
-	love.graphics.setColor(255, 255, 255, 255);
-	love.graphics.circle("line", Mouse.x, Mouse.y, 10.7, 100)
-
- 	love.graphics.draw(Player.sprite, Player.x, Player.y, angle, 1, 1, Player.width/2, Player.height/2);
-
- 	local greyscale = gradient { direction = 'horizontal'; {0, 0, 0, 0}; {0, 0, 0, 100}}
-
- 	drawinrect(greyscale, 0, Window.height - 60, Window.width, 60);
-
-	local healthIcon = love.graphics.newImage("src/plus.png");
-	local ammoIcon = love.graphics.newImage("src/fightJ.png");
-
-	love.graphics.setColor(255, 255, 255, 255);
-	love.graphics.draw(love.graphics.newImage("src/btm_bar.png"), 100, Window.height - 96, 0, 0.8, 0.8)
-
-	for lfs=1,Player.lifes.amount,1 do
-		local elevation = (45 * lfs);
-		love.graphics.setColor(0, 0, 0, 50);
-		love.graphics.draw(healthIcon, 78 + elevation, Window.height - 75, 0, 0.35, 0.35)
-		love.graphics.setColor(255, 255, 255, 255);
-		love.graphics.draw(healthIcon, 75 + elevation, Window.height - 77, 0, 0.35, 0.35)
-	end
-
-	for amo=1,Player.gun.rounds,1 do
-		local elevation = (45 * amo);
-		love.graphics.setColor(0, 0, 0, 50);
-		love.graphics.draw(ammoIcon, 913 - elevation, Window.height - 75, 0, 0.35, 0.35)
-		love.graphics.setColor(255, 255, 255, 255);
-		love.graphics.draw(ammoIcon, 910 - elevation, Window.height - 77, 0, 0.35, 0.35)
-	end
-
-	if (Player.gun.rounds <= 0 and Player.gun.canReload) then
-		love.graphics.setColor(0, 0, 0, 50);
-		love.graphics.print("Press R to reload!", 633, Window.height - 71);
-		love.graphics.setColor(255, 255, 255, 255);
-		love.graphics.print("Press R to reload!", 630, Window.height - 73);
-	elseif Player.gun.canReload == false then
-		love.graphics.setColor(0, 0, 0, 50);
-		love.graphics.print("Reloading...", 673, Window.height - 71);
-		love.graphics.setColor(255, 255, 255, 255);
-		love.graphics.print("Reloading...", 670, Window.height - 73);
-	end
-
-	love.graphics.setColor(0, 0, 0, 50);
-	love.graphics.print(Game.version, Window.width - 127, 9);
-	love.graphics.setColor(255, 255, 255, 255);
-	love.graphics.print(Game.version, Window.width - 130, 7);
+	
  end
 
 --[[
@@ -330,16 +426,28 @@ function love.load()
 ]]--
 
 function love.keypressed( key, isrepeat )
-	if (key == "r" and Player.gun.canReload) then
-		Player.gun.reloadTime = 1.0;
-		Player.gun.rounds = 0;
-		Player.gun.canReload = false;
+	if(Game.isActive) then
+		if (key == "r" and Player.gun.canReload) then
+			Player.gun.reloadTime = 1.0;
+			Player.gun.rounds = 0;
+			Player.gun.canReload = false;
+		end
 	end
 end
 
 function love.keyreleased( key )
 	if (key == "escape") then
-		love.event.quit()
+
+		if(Menu.isActive) then
+				Game.isActive = true
+				Menu.isActive = false
+				turnShaders(false)
+		else
+				Game.isActive = false
+				Menu.isActive = true
+				turnShaders(true)
+		end
+		--love.event.quit()
 	end
 
 
@@ -354,20 +462,40 @@ function love.mousefocus( f )
 end
 
 function love.mousepressed( x, y, button )
-	if button == 1 and Player.gun.heat <= 0 and Player.gun.rounds > 0 then
-		local direction = math.atan2(love.mouse.getY() - Player.y, love.mouse.getX() - Player.x)
+	if(Game.isActive) then
+		if button == 1 and Player.gun.heat <= 0 and Player.gun.rounds > 0 then
+			local direction = math.atan2(love.mouse.getY() - Player.y, love.mouse.getX() - Player.x)
 
-		pistolX = Player.x + ((10* math.cos(direction)) - (10 * math.sin(direction)));
-		pistolY = Player.y + ((10* math.cos(direction)) + (10 * math.sin(direction)));
+			pistolX = Player.x + ((10* math.cos(direction)) - (10 * math.sin(direction)));
+			pistolY = Player.y + ((10* math.cos(direction)) + (10 * math.sin(direction)));
 
-		table.insert(Player.bullets, {
-			x = pistolX,
-			y = pistolY,
-			dir = direction,
-			speed = 1400
-		})
-		Player.gun.heat = Player.gun.heatp
-		Player.gun.rounds = Player.gun.rounds - 1
+			table.insert(Player.bullets, {
+				x = pistolX,
+				y = pistolY,
+				dir = direction,
+				speed = 1400
+			})
+			Player.gun.heat = Player.gun.heatp
+			Player.gun.rounds = Player.gun.rounds - 1
+		end
+	end
+	if(Menu.isActive) then
+		if button == l then
+			if(rectangleCollision(x, y, 10, 10, Menu.button.start.x, Menu.button.start.y, Menu.button.start.width, Menu.button.start.height)) then
+				if Menu.button.start.text == "Resume" then
+					Menu.isActive = false
+					Game.isActive = true
+				elseif Menu.button.start.text == "Start" then
+					Menu.isActive = false
+					Game.isActive = true
+					Game.needReset = false
+				end
+			end
+
+			if(rectangleCollision(x, y, 10, 10, Menu.button.quit.x, Menu.button.quit.y, Menu.button.quit.width, Menu.button.quit.height)) then
+				love.event.quit()
+			end
+		end
 	end
 end
 
@@ -440,6 +568,33 @@ function getLocationOutsideBox()
 	return set;
 end
 
+function turnShaders(turn)
+	if(turn) then
+		-- load the effects you want
+	    local grain = shine.gaussianblur()
+	    -- many effects can be parametrized
+
+	    -- multiple parameters can be set at once
+	    local vignette = shine.vignette()
+	    vignette.parameters = {radius = 0.9, opacity = 0.3}
+	    -- you can also provide parameters on effect construction
+	    local desaturate = shine.desaturate{strength = 0.4, tint = {255,250,200}}
+	    -- you can chain multiple effects
+	    post_effect = desaturate:chain(grain):chain(vignette)
+	    -- warning - setting parameters affects all chained effects:
+	    post_effect.opacity = 0.6 -- affects both vignette and film grain
+	else
+		local vignette = shine.vignette()
+	    vignette.parameters = {radius = 0.9, opacity = 0.5}
+	    -- you can also provide parameters on effect construction
+	    local desaturate = shine.desaturate{strength = 0.15, tint = {255,250,200}}
+	    -- you can chain multiple effects
+	    post_effect = desaturate:chain(vignette)
+	    -- warning - setting parameters affects all chained effects:
+    	--ost_effect.opacity = 0.4 -- affects both vignette and film grain
+    end
+end
+
 function spawnParticles(count)
 	for i = 0, count, 1 do
 		createParticle()
@@ -449,7 +604,7 @@ end
 function createParticle()
 	local pX = love.math.random(-32, Window.width + 32);
 	local pY = love.math.random(-32, Window.height + 32);
-	local pAngle = love.math.random(0.0, 1.0);
+	local pAngle = love.math.random(0.01, 0.99);
 
 	for i, o in ipairs(Environment.Map.particles) do
 		if rectangleCollision(o.x, o.y, o.width, o.height, pX, pY, 64, 64) then
@@ -472,21 +627,23 @@ function createParticle()
 	});
 end
 
-function spawnPickup()
-	local pX = love.math.random(-32, Window.width + 32);
-	local pY = love.math.random(-32, Window.height + 32);
+function spawnPickup(x, y)
+	--local pX = love.math.random(-32, Window.width + 32);
+	--local pY = love.math.random(-32, Window.height + 32);
+	local pX = x
+	local pY = y
 	local pType = love.math.random(0, 1);
+	local pAngle = love.math.random(0, 1);
 
 	local pSprite = nil;
 	local pWidth = 0;
 	local pHeight = 0;
-	pType = 1;
 	if(pType == 0) then
-		pSprite = "/src/genericItem_color_102.png";
-		pWidth = 117
-		pHeight = 117
-	elseif(pType == 1) then
 		pSprite = "/src/genericItem_color_089.png";
+		pWidth = 40
+		pHeight = 40
+	elseif(pType == 1) then
+		pSprite = "/src/genericItem_color_090.png";
 		pWidth = 40
 		pHeight = 40
 	end
@@ -496,8 +653,10 @@ function spawnPickup()
 		y = pY,
 		width = pWidth,
 		height = pHeight,
-		angle = 0,
+		angle = pAngle,
 		pickup = pType,
+		resize = 0.55,
+		resizeDir = "up",
 		sprite = love.graphics.newImage(pSprite),
 	});
 end
@@ -525,6 +684,8 @@ function spawnEnemy()
 
 
 end
+
+function maybe(x) if 100 * math.random() < x then return true else return false end  end 
 
 function setupSpriteBatch()
   Environment.Map.spriteBatch:clear()
