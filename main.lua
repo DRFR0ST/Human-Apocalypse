@@ -24,9 +24,12 @@
 local shine = require '/lib/shine'
                        
 function init()
-	spawnEnemy()
+	local enemyCount = love.math.random(4, 10);
+	for i = 0, enemyCount, 1 do
+		spawnEnemy()
+	end
 	love.graphics.setFont(Window.font, 15)
-	spawnParticles(20);
+	spawnParticles(15);
 	turnShaders(true)
 end
 
@@ -50,7 +53,7 @@ function love.load()
 		Game = {
 			isActive = false,
 			needReset = true,
-			version = "Alpha v0.1",
+			version = "Alpha v0.2",
 			score = 0,
 		}
 	--[[ ---- ]]--
@@ -60,7 +63,7 @@ function love.load()
 			isActive = true,
 			buttons = {
 				start = { 
-					x = Window.width / 2, 
+					x = Window.width / 2 - 40, 
 					y = 64 * 3 + 128, 
 					width = 190,
 					height = 49,
@@ -69,7 +72,7 @@ function love.load()
 				},
 
 				quit = { 
-					x = Window.width / 2, 
+					x = Window.width / 2 - 40, 
 					y = 64 * 3 + 128 * 2, 
 					width = 190,
 					height = 49,
@@ -88,7 +91,7 @@ function love.load()
 			y = 768/2 - (43/2),
 			width = 49,
 			height = 43,
-			speed = 200,
+			speed = 100,
 			angle = 0,
 			lifes = {
 				amount = 5,
@@ -109,7 +112,8 @@ function love.load()
 	--[[ Enemy ]]--
 		Enemy = {
 			instances = { },
-			respawnTime = 2,
+			respawnTime = 5,
+			maxRespawnTime = 5,
 		}
 	--[[ ----- ]]--
 
@@ -117,6 +121,7 @@ function love.load()
 		Pickups = { 
 			instances = {},
 			respawnTime = love.math.random(10.0, 30.0),
+			speedTime = -1;
 		}
 	--[[ ------- ]]--
 
@@ -151,20 +156,22 @@ function love.load()
 		Mouse.y = love.mouse.getY()
 	--[[ ----- - ----- ]]--
 
-		if(Mouse.x >= Window.width - 10) then
-			love.mouse.setPosition(Window.width - 10, Mouse.y);
-		end
+		if(not Menu.isActive) then
+			if(Mouse.x >= Window.width - 10) then
+				love.mouse.setPosition(Window.width - 10, Mouse.y);
+			end
 
-		if(Mouse.x <= 10) then
-			love.mouse.setPosition(10, Mouse.y);
-		end
+			if(Mouse.x <= 10) then
+				love.mouse.setPosition(10, Mouse.y);
+			end
 
-		if(Mouse.y >= Window.height - 10) then
-			love.mouse.setPosition(Mouse.x, Window.height - 10);
-		end
+			if(Mouse.y >= Window.height - 10) then
+				love.mouse.setPosition(Mouse.x, Window.height - 10);
+			end
 
-		if(Mouse.y <= 10) then
-			love.mouse.setPosition(Mouse.x, 10);
+			if(Mouse.y <= 10) then
+				love.mouse.setPosition(Mouse.x, 10);
+			end
 		end
 
  	if(Game.isActive) then
@@ -173,11 +180,13 @@ function love.load()
 			Player.gun.heat = math.max(0, Player.gun.heat - dt);
 			if(Player.gun.reloadTime > 0.0) then Player.gun.reloadTime = math.max(0, Player.gun.reloadTime - dt); end
 			Enemy.respawnTime = math.max(0, Enemy.respawnTime - dt);
+			if(Pickups.speedTime > 0.0) then Pickups.speedTime = math.max(0, Pickups.speedTime - dt); end
 			-- if(Pickups.respawnTime > 0.0) then Pickups.respawnTime = math.max(0, Pickups.respawnTime - dt); end
 
 			if(Enemy.respawnTime <= 0.0) then
 				spawnEnemy();
-				Enemy.respawnTime = 5.0;
+				Enemy.maxRespawnTime = Enemy.maxRespawnTime - 0.001;
+				Enemy.respawnTime = Enemy.maxRespawnTime;
 			end
 
 			-- if(Pickups.respawnTime == 0.0) then
@@ -185,8 +194,13 @@ function love.load()
 			-- 	Pickups.respawnTime = -0.1
 			-- end
 
+			if(Pickups.speedTime == 0.0) then
+				Player.speed = 100;
+				Pickups.speedTime = -1;
+			end
+
 			if(Player.gun.reloadTime == 0.0)then
-				Player.gun.rounds = 6;
+				Player.gun.rounds = 7;
 				Player.gun.canReload = true;
 				Player.gun.reloadTime = -1;
 			end
@@ -203,7 +217,7 @@ function love.load()
 	    				if(m.health <= 0) then
 	    					table.remove(Enemy.instances, n);
 	    					
-	    					if(maybe(15) == true) then
+	    					if(maybe(m.dropRate) == true) then
 	    						spawnPickup(m.x + (m.width/2) - 20, m.y + (m.height/2) - 20)
 	    					end
 	    				end
@@ -225,12 +239,18 @@ function love.load()
 		    for g, h in ipairs(Pickups.instances) do
 		    	if rectangleCollision(Player.x, Player.y, Player.width, Player.height, h.x, h.y, h.width, h.height) then
 		    		if(h.pickup == 0) then
-		    			Player.lifes.amount = Player.lifes.amount + 1;
+		    			if(Player.lifes.amount < 10) then
+		    				Player.lifes.amount = Player.lifes.amount + 1;
+		    				table.remove(Pickups.instances, g);
+		    				turnShaders(false);
+		    				--Pickups.respawnTime = love.math.random(10.0, 30.0)
+		    			end
 		    		elseif h.pickup == 1 then
-		    			Player.gun.rounds = 10
+		    			Player.speed = 250;
+		    			Pickups.speedTime = 5.0
+		    			table.remove(Pickups.instances, g);
+		    			--Pickups.respawnTime = love.math.random(10.0, 30.0)
 		    		end
-		    		table.remove(Pickups.instances, g);
-		    		Pickups.respawnTime = love.math.random(10.0, 30.0)
 		    	end
 
 		    	h.angle = h.angle + 0.5 * dt
@@ -284,24 +304,27 @@ function love.load()
 		    	if(rectangleCollision(Player.x, Player.y, Player.width, Player.height, k.x, k.y, k.width, k.height)) then
 		    		table.remove(Enemy.instances, j);
 		    		Player.lifes.amount = Player.lifes.amount - 1
-
-		    		if (Player.lifes.amount <= 0) then
+		    		if(Player.lifes.amount < 4) then turnShaders(false); end
+		    		if (Player.lifes.amount <= 0) then --debug chit
 		    			Player.lifes.amount = 5;
 		    		end
 		    	end
+--			 	if not rectangleCollision(k.x, k.y, k.width, k.height, Player.x - 100, Player.y - 100, Player.width + 200, Player.height + 200) then --debug chit
 
-			    if k.x < Player.x then
-			        k.x = k.x + k.speed * dt
-			    end
-			    if k.x > Player.x then
-			        k.x = k.x - k.speed * dt
-			    end
-			    if k.y < Player.y then
-			        k.y = k.y + k.speed * dt
-			    end
-			    if k.y > Player.y then
-			        k.y = k.y - k.speed * dt
-			    end
+				    if k.x < Player.x then
+				        k.x = k.x + k.speed * dt
+				    end
+				    if k.x > Player.x then
+				        k.x = k.x - k.speed * dt
+				    end
+				    if k.y < Player.y then
+				        k.y = k.y + k.speed * dt
+				    end
+				    if k.y > Player.y then
+				        k.y = k.y - k.speed * dt
+				    end
+--			 	end
+
 		    end
 
 			
@@ -410,19 +433,19 @@ function love.load()
 			local elevation = (45 * amo);
 			love.graphics.setColor(0, 0, 0, 50);
 			love.graphics.draw(ammoIcon, 913 - elevation, Window.height - 75, 0, 0.35, 0.35)
-			love.graphics.setColor(255, 255, 255, 255);
+			if(Player.gun.rounds < 3) then love.graphics.setColor(255, 122, 122, 255); else love.graphics.setColor(255, 255, 255, 255); end
 			love.graphics.draw(ammoIcon, 910 - elevation, Window.height - 77, 0, 0.35, 0.35)
 		end
 
 		if (Player.gun.rounds <= 0 and Player.gun.canReload) then
 			love.graphics.setColor(0, 0, 0, 50);
-			love.graphics.print("Press R to reload!", 633, Window.height - 71);
-			love.graphics.setColor(255, 255, 255, 255);
-			love.graphics.print("Press R to reload!", 630, Window.height - 73);
+			love.graphics.print("Press R to RELOAD", 633, Window.height - 71);
+			love.graphics.setColor(255, 122, 122, 255);
+			love.graphics.print("Press R to RELOAD", 630, Window.height - 73);
 		elseif Player.gun.canReload == false then
 			love.graphics.setColor(0, 0, 0, 50);
 			love.graphics.print("Reloading...", 673, Window.height - 71);
-			love.graphics.setColor(255, 255, 255, 255);
+			love.graphics.setColor(255, 219, 112, 255);
 			love.graphics.print("Reloading...", 670, Window.height - 73);
 		end
 
@@ -430,6 +453,18 @@ function love.load()
 		love.graphics.print("Score "..Game.score, 96, Window.height - 106);
 		love.graphics.setColor(255, 255, 255, 255);
 		love.graphics.print("Score "..Game.score, 93, Window.height - 108);
+
+		if(Pickups.speedTime > 0.0) then
+		local eSpeedBar = (Pickups.speedTime*100)/5.0;
+		eSpeedBar = eSpeedBar * 2
+		love.graphics.setColor(0, 0, 0, 50);
+		love.graphics.rectangle("fill", Window.width - 253, Window.height - 113, eSpeedBar, 25)
+		love.graphics.setColor(53, 141, 211, 255);
+		love.graphics.rectangle("fill", Window.width - 250, Window.height - 115, eSpeedBar, 25)
+		love.graphics.setColor(47, 125, 188, 255);
+		love.graphics.rectangle("line", (Window.width - 250) + (eSpeedBar), Window.height - 115, (200 - eSpeedBar), 25)
+		love.graphics.setColor(255, 255, 255, 255);
+		end
 	end
 
 	if (Menu.isActive) then
@@ -473,7 +508,7 @@ function love.load()
 function love.keypressed( key, isrepeat )
 	if(Game.isActive) then
 		if (key == "r" and Player.gun.canReload) then
-			Player.gun.reloadTime = 1.0;
+			Player.gun.reloadTime = 0.75;
 			Player.gun.rounds = 0;
 			Player.gun.canReload = false;
 		end
@@ -519,7 +554,7 @@ function love.mousepressed( x, y, button )
 				x = pistolX,
 				y = pistolY,
 				dir = direction,
-				speed = 1400
+				speed = 2000
 			})
 			Player.gun.heat = Player.gun.heatp
 			Player.gun.rounds = Player.gun.rounds - 1
@@ -636,6 +671,10 @@ function turnShaders(turn)
 	    vignette.parameters = {radius = 0.9, opacity = 0.5}
 	    -- you can also provide parameters on effect construction
 	    local desaturate = shine.desaturate{strength = 0.15, tint = {255,250,200}}
+
+	 	if Player.lifes.amount == 3 then desaturate = shine.desaturate{strength = 0.2, tint = {255, 229, 229}}; vignette.parameters = {radius = 0.7, opacity = 0.5} end
+	 	if Player.lifes.amount == 2 then desaturate = shine.desaturate{strength = 0.4, tint = {252, 209, 209}}; vignette.parameters = {radius = 0.6, opacity = 0.7} end
+	 	if Player.lifes.amount == 1 then desaturate = shine.desaturate{strength = 0.5, tint = {252, 196, 196}}; vignette.parameters = {radius = 0.5, opacity = 0.9} end
 	    -- you can chain multiple effects
 	    post_effect = desaturate:chain(vignette)
 	    -- warning - setting parameters affects all chained effects:
@@ -709,8 +748,25 @@ function spawnPickup(x, y)
 	});
 end
 
+function getEnemy()
+	local enemyUnlocked = 0;
+	if Game.score > 1000 then enemyUnlocked = 1; end 
+	if Game.score > 2000 then enemyUnlocked = 2; end
+	local enemyType = love.math.random(0, enemyUnlocked);
+	return enemyType;
+end
+
+
 function spawnEnemy()
-	local locSet = getLocationOutsideBox();
+	local locSet = getLocationOutsideBox()
+
+	for i, o in ipairs(Enemy.instances) do
+		if rectangleCollision(o.x, o.y, o.width, o.height, locSet.width - (o.width/2), locSet.height - (o.height/2), 37 + ((o.width/2)*2), 43 + o.height) then
+			spawnEnemy()
+			return;
+		end
+	end
+
 	local eX = locSet.width;
 	local eY = locSet.height;
 
@@ -721,20 +777,23 @@ function spawnEnemy()
 
 	local eHealth = 150;
 
-	local enemyType = love.math.random(0, 2);
-
+	local enemyType = getEnemy();
+	local eDropRate = 20;
 	if enemyType == 0 then
-		eSprite = "/src/survivor1_hold.png";
-		eSpeed = love.math.random(15, 40);
-		eHealth = 150;
-	elseif enemyType == 1 then
-		eSprite = "/src/robot1_hold.png";
-		eSpeed = love.math.random(30, 50);
-		eHealth = 225;
-	elseif enemyType == 2 then
 		eSprite = "/src/manOld_hold.png";
 		eSpeed = love.math.random(10, 25);
 		eHealth = 100;
+		eDropRate = 60;
+	elseif enemyType == 1 then
+		eSprite = "/src/survivor1_hold.png";
+		eSpeed = love.math.random(15, 40);
+		eHealth = 150;
+		eDropRate = 45;
+	elseif enemyType == 2 then
+		eSprite = "/src/robot1_hold.png";
+		eSpeed = love.math.random(30, 50);
+		eHealth = 225;
+		eDropRate = 10;
 	end
 
 	table.insert(Enemy.instances, {
@@ -745,6 +804,7 @@ function spawnEnemy()
 		angle = 0,
 		health = eHealth,
 		maxHealth = eHealth,
+		dropRate = eDropRate,
 		speed = eSpeed,
 		sprite = love.graphics.newImage( eSprite ),
 	});
