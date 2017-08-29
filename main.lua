@@ -197,6 +197,7 @@ function love.load()
 			if(Pickups.speedTime == 0.0) then
 				Player.speed = 100;
 				Pickups.speedTime = -1;
+				turnShaders(false);
 			end
 
 			if(Player.gun.reloadTime == 0.0)then
@@ -249,6 +250,7 @@ function love.load()
 		    			Player.speed = 250;
 		    			Pickups.speedTime = 5.0
 		    			table.remove(Pickups.instances, g);
+		    			turnShaders(false);
 		    			--Pickups.respawnTime = love.math.random(10.0, 30.0)
 		    		end
 		    	end
@@ -458,11 +460,11 @@ function love.load()
 		local eSpeedBar = (Pickups.speedTime*100)/5.0;
 		eSpeedBar = eSpeedBar * 2
 		love.graphics.setColor(0, 0, 0, 50);
-		love.graphics.rectangle("fill", Window.width - 253, Window.height - 113, eSpeedBar, 25)
+		love.graphics.rectangle("fill", Window.width - 283, Window.height - 113, eSpeedBar, 25)
 		love.graphics.setColor(53, 141, 211, 255);
-		love.graphics.rectangle("fill", Window.width - 250, Window.height - 115, eSpeedBar, 25)
+		love.graphics.rectangle("fill", Window.width - 280, Window.height - 115, eSpeedBar, 25)
 		love.graphics.setColor(47, 125, 188, 255);
-		love.graphics.rectangle("line", (Window.width - 250) + (eSpeedBar), Window.height - 115, (200 - eSpeedBar), 25)
+		love.graphics.rectangle("line", (Window.width - 280) + (eSpeedBar), Window.height - 115, (200 - eSpeedBar), 25)
 		love.graphics.setColor(255, 255, 255, 255);
 		end
 	end
@@ -673,8 +675,11 @@ function turnShaders(turn)
 	    local desaturate = shine.desaturate{strength = 0.15, tint = {255,250,200}}
 
 	 	if Player.lifes.amount == 3 then desaturate = shine.desaturate{strength = 0.2, tint = {255, 229, 229}}; vignette.parameters = {radius = 0.7, opacity = 0.5} end
-	 	if Player.lifes.amount == 2 then desaturate = shine.desaturate{strength = 0.4, tint = {252, 209, 209}}; vignette.parameters = {radius = 0.6, opacity = 0.7} end
-	 	if Player.lifes.amount == 1 then desaturate = shine.desaturate{strength = 0.5, tint = {252, 196, 196}}; vignette.parameters = {radius = 0.5, opacity = 0.9} end
+	 	if Player.lifes.amount == 2 then desaturate = shine.desaturate{strength = 0.4, tint = {252, 209, 209}}; vignette.parameters = {radius = 0.6, opacity = 0.6} end
+	 	if Player.lifes.amount == 1 then desaturate = shine.desaturate{strength = 0.5, tint = {252, 196, 196}}; vignette.parameters = {radius = 0.5, opacity = 0.7} end
+	 	
+	 	if Pickups.speedTime > 0.0 then desaturate = shine.desaturate{strength = 0.4, tint = {86, 180, 255}}; vignette.parameters = {radius = 0.99, opacity = 0.3} end
+
 	    -- you can chain multiple effects
 	    post_effect = desaturate:chain(vignette)
 	    -- warning - setting parameters affects all chained effects:
@@ -778,12 +783,12 @@ function spawnEnemy()
 	local eHealth = 150;
 
 	local enemyType = getEnemy();
-	local eDropRate = 20;
+	local eDropRate = 45;
 	if enemyType == 0 then
 		eSprite = "/src/manOld_hold.png";
 		eSpeed = love.math.random(10, 25);
 		eHealth = 100;
-		eDropRate = 60;
+		eDropRate = 20;
 	elseif enemyType == 1 then
 		eSprite = "/src/survivor1_hold.png";
 		eSpeed = love.math.random(15, 40);
@@ -793,7 +798,7 @@ function spawnEnemy()
 		eSprite = "/src/robot1_hold.png";
 		eSpeed = love.math.random(30, 50);
 		eHealth = 225;
-		eDropRate = 10;
+		eDropRate = 65;
 	end
 
 	table.insert(Enemy.instances, {
