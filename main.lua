@@ -24,12 +24,15 @@
 local shine = require '/lib/shine'
                        
 function init()
-	local enemyCount = love.math.random(4, 10);
-	for i = 0, enemyCount, 1 do
-		spawnEnemy()
+	if(not Game.inDebug) then
+		local enemyCount = love.math.random(4, 10);
+		for i = 0, enemyCount, 1 do
+		 	spawnEnemy()
+		end
 	end
+
 	love.graphics.setFont(Window.font, 15)
-	spawnParticles(15);
+	spawnParticles(35);
 	turnShaders(true)
 end
 
@@ -51,7 +54,10 @@ function love.load()
 
 	--[[ Game ]]--
 		Game = {
-			isActive = false,
+			inDebug = false, -- DEVELOPER MODE!!!
+
+			firstRound = true,
+			isActive = false,		
 			needReset = true,
 			version = "Alpha v0.2",
 			score = 0,
@@ -97,6 +103,7 @@ function love.load()
 				amount = 5,
 			},
 
+			farts = {},
 			bullets = {},
 			gun = {
 				heat = 0,
@@ -112,8 +119,15 @@ function love.load()
 	--[[ Enemy ]]--
 		Enemy = {
 			instances = { },
-			respawnTime = 5,
+			bullets = {},
+			respawnTime = 2,
 			maxRespawnTime = 5,
+			multiplier = 1,
+			tanks = {
+				instances = { },
+				respawnTime = 25,
+				maxRespawnTime = love.math.random(20, 60),
+			}
 		}
 	--[[ ----- ]]--
 
@@ -180,15 +194,29 @@ function love.load()
 			Player.gun.heat = math.max(0, Player.gun.heat - dt);
 			if(Player.gun.reloadTime > 0.0) then Player.gun.reloadTime = math.max(0, Player.gun.reloadTime - dt); end
 			Enemy.respawnTime = math.max(0, Enemy.respawnTime - dt);
+			Enemy.tanks.respawnTime = math.max(0, Enemy.tanks.respawnTime - dt);
 			if(Pickups.speedTime > 0.0) then Pickups.speedTime = math.max(0, Pickups.speedTime - dt); end
 			-- if(Pickups.respawnTime > 0.0) then Pickups.respawnTime = math.max(0, Pickups.respawnTime - dt); end
 
 			if(Enemy.respawnTime <= 0.0) then
-				spawnEnemy();
-				Enemy.maxRespawnTime = Enemy.maxRespawnTime - 0.001;
-				Enemy.respawnTime = Enemy.maxRespawnTime;
+				if(not Game.inDebug) then
+					for i = 1, math.floor(Enemy.multiplier), 1 do
+						spawnEnemy();
+					end
+
+					Enemy.multiplier = Enemy.multiplier + 0.01;
+					if(Enemy.maxRespawnTime > 2) then Enemy.maxRespawnTime = Enemy.maxRespawnTime - 0.1; end
+					Enemy.respawnTime = Enemy.maxRespawnTime;
+				end
 			end
 
+			if(Enemy.tanks.respawnTime == 0.0) then
+				if(not Game.inDebug) then
+					spawnTank();
+					if(Enemy.tanks.maxRespawnTime > 10) then Enemy.tanks.maxRespawnTime = Enemy.tanks.maxRespawnTime - 0.0001; end
+					Enemy.tanks.respawnTime = Enemy.tanks.maxRespawnTime;
+				end
+			end
 			-- if(Pickups.respawnTime == 0.0) then
 			-- 	spawnPickup();
 			-- 	Pickups.respawnTime = -0.1
@@ -212,9 +240,16 @@ function love.load()
 		        for n, m in ipairs(Enemy.instances) do
 			        if(circle_and_rectangle_overlap(o.x, o.y, 4, m.x - (m.width / 2), m.y - (m.height / 2), m.width, m.height))then
 			        	table.remove(Player.bullets, i);
-			        	local rand = love.math.random(10, 75);
-			        	m.health = m.health - rand;
-			        	Game.score = Game.score + math.floor(rand/2);
+			        	local damage = love.math.random(25, 60);
+			        	if(circle_and_rectangle_overlap(o.x, o.y, 4, m.x - (m.width / 4), m.y - (m.height / 2), m.width/2, m.height)) then
+			        		damage = love.math.random(70, 100);
+			        	end
+
+			        	m.health = m.health - damage;
+			        	--local direction = o.dir;
+			   --      	m.x=m.x + love.math.cos(direction)*20;
+						-- m.y=m.y-love.math.sin(direction)*20;
+			        	Game.score = Game.score + math.floor(damage/2);
 	    				if(m.health <= 0) then
 	    					table.remove(Enemy.instances, n);
 	    					
@@ -222,6 +257,14 @@ function love.load()
 	    						spawnPickup(m.x + (m.width/2) - 20, m.y + (m.height/2) - 20)
 	    					end
 	    				end
+			        end
+			    end
+
+			    for n, m in ipairs(Enemy.tanks.instances) do
+			        if(circle_and_rectangle_overlap(o.x, o.y, 4, m.x , m.y, m.width, m.height))then
+			        	table.remove(Player.bullets, i);
+			        	local rand = love.math.random(100, 200);
+			        	Game.score = Game.score + math.floor(rand/2);
 			        end
 			    end
 
@@ -235,6 +278,46 @@ function love.load()
 		        or (o.y < -10) or (o.y > love.graphics.getHeight() + 10) then
 		            table.remove(Player.bullets, i)
 		        end
+		    end
+
+		    for f, a in ipairs(Player.farts) do
+		    	a.opacity = math.max(0, (a.opacity - 2.5) - dt);
+
+		    	if(a.opacity <= 0) then table.remove(Player.farts, f); end
+		    end
+
+		    for r, t in ipairs(Enemy.tanks.instances) do
+		    	if rectangleCollision(t.x, t.y, t.width, t.height, Player.x, Player.y, Player.width, Player.height) and t.hit == false then
+		    		Player.lifes.amount = Player.lifes.amount - 2
+		    		t.hit = true;
+		    	end
+
+			    	if t.dir == 0 then --right
+			    		t.x = t.x + t.speed * dt
+			    	elseif t.dir == 1 then --left
+			    		t.x = t.x - t.speed * dt
+			    	end
+
+
+		    	if t.x - (t.width/2) > Window.width + 500 then
+		    		table.remove(Enemy.tanks.instances, r);
+		    	end
+
+		    	if(t.x + t.width < -500) then
+		    		table.remove(Enemy.tanks.instances, r);
+		    	end
+
+		        for n, m in ipairs(Enemy.instances) do
+		        	if rectangleCollision(m.x, m.y, m.width, m.height, t.x, t.y, t.width, t.height) then
+		        		table.remove(Enemy.instances, n);
+		        	end
+			    end
+
+			    for l, k in ipairs(Enemy.bullets) do
+			    	if circle_and_rectangle_overlap(k.x, k.y, 4, t.x, t.y, t.width, t.height) then
+			    		table.remove(Enemy.bullets, l)
+			    	end
+			    end
 		    end
 
 		    for g, h in ipairs(Pickups.instances) do
@@ -299,20 +382,90 @@ function love.load()
 		    	Player.y = 0
 		    end
 
+		    for i, o in ipairs(Enemy.bullets) do
+		        o.x = o.x + math.cos(o.dir) * o.speed * dt
+				o.y = o.y + math.sin(o.dir) * o.speed * dt
+
+				        for ö, ä in ipairs(Enemy.instances) do
+				        	if circle_and_rectangle_overlap(o.x, o.y, 4, ä.x, ä.y, ä.width, ä.height) and o.invokerID ~= ä.id then
+					        	table.remove(Enemy.bullets, i);
+					        	local damage = love.math.random(25, 50);
+
+					     
+					        	ä.health = ä.health - damage;
+					   --      	local direction = o.dir;
+					   --      	ä.x=ä.x+love.math.cos(direction)*20;
+								-- ä.y=ä.y-love.math.sin(direction)*20;
+					        	--Game.score = Game.score + math.floor(damage/2);
+			    				if(ä.health <= 0) then
+			    					table.remove(Enemy.instances, ö);
+			    					
+			    					if(maybe(ä.dropRate) == true) then
+			    						spawnPickup(ä.x + (ä.width/2) - 20, ä.y + (ä.height/2) - 20)
+			    					end
+			    				end
+				        	end
+				        end
+					    for i, o in ipairs(Enemy.bullets) do
+
+					        if(circle_and_rectangle_overlap(o.x, o.y, 4, Player.x - (Player.width / 2), Player.y - (Player.height / 2), Player.width, Player.height))then
+					        	table.remove(Enemy.bullets, i);
+					        	Player.lifes.amount = Player.lifes.amount - 1
+
+			    				checkPlayerHealth();
+					        end
+
+					    end
+						-- clean up out-of-screen bullets:
+							for i = #Enemy.bullets, 1, -1 do
+						        local o = Enemy.bullets[i]
+						        if (o.x < -10) or (o.x > love.graphics.getWidth() + 10)
+						        or (o.y < -10) or (o.y > love.graphics.getHeight() + 10) then
+						            table.remove(Enemy.bullets, i)
+						        end
+						    end
+		    end
+
 		    for j, k in ipairs(Enemy.instances) do
 		    	--k.x = k.x + ((Player.x - k.x) * 1000)
 		    	--k.y = k.y + ((Player.y - k.y) * 1000)
 
 		    	if(rectangleCollision(Player.x, Player.y, Player.width, Player.height, k.x, k.y, k.width, k.height)) then
 		    		table.remove(Enemy.instances, j);
-		    		Player.lifes.amount = Player.lifes.amount - 1
-		    		if(Player.lifes.amount < 4) then turnShaders(false); end
-		    		if (Player.lifes.amount <= 0) then --debug chit
-		    			Player.lifes.amount = 5;
-		    		end
+					checkPlayerHealth()
 		    	end
---			 	if not rectangleCollision(k.x, k.y, k.width, k.height, Player.x - 100, Player.y - 100, Player.width + 200, Player.height + 200) then --debug chit
+				if k.isShooting then
+					if k.x <= Window.width - (k.width/2) and k.x + (k.width/2) >= 0 and k.y <= Window.height - (k.height/2) and k.y + (k.height/2) >= 0 then
 
+
+			    		k.heat = math.max(0, k.heat - dt);
+			    		if k.heat <= 0 then
+							local direction = math.atan2(Player.y - k.y, Player.x - k.x)
+
+							local pistolX = k.x + ((10* math.cos(direction)) - (10 * math.sin(direction)));
+							local pistolY = k.y + ((10* math.cos(direction)) + (10 * math.sin(direction)));
+
+							table.insert(Enemy.bullets, {
+								invokerID = k.id,
+								x = pistolX,
+								y = pistolY,
+								dir = direction,
+								speed = k.weapon.speed + k.speed,
+							})
+							k.heat = k.heatp
+
+						end
+					end
+				end
+
+--			 	if not rectangleCollision(k.x, k.y, k.width, k.height, Player.x - 100, Player.y - 100, Player.width + 200, Player.height + 200) then --debug chit
+				-- local coughtInFart = false
+				-- for f, a in ipairs(Player.farts) do
+				-- 	if not rectangleCollision(a.x, a.y, a.width, a.height, k.x, k.y, k.width, k.height) then
+				-- 		coughtInFart = true
+				-- 	end
+				-- end
+				--if(not coughtInFart) then
 				    if k.x < Player.x then
 				        k.x = k.x + k.speed * dt
 				    end
@@ -326,7 +479,7 @@ function love.load()
 				        k.y = k.y - k.speed * dt
 				    end
 --			 	end
-
+				--end
 		    end
 
 			
@@ -365,7 +518,7 @@ function love.load()
 	 	love.graphics.draw(Environment.Map.spriteBatch);
 
 	 	for t, z in ipairs(Environment.Map.particles) do
-	 		love.graphics.draw(z.sprite, z.x, z.y, z.angle, 1, 1, z.width/2, z.height/2)
+	 		love.graphics.draw(z.sprite, z.x, z.y, z.angle, 0.6, 0.6, z.width/2, z.height/2)
 	 	end
 
 	 	for g, h in ipairs(Pickups.instances) do
@@ -374,6 +527,11 @@ function love.load()
 	 		love.graphics.setColor(255, 255, 255, 255);
 	 		love.graphics.draw(h.sprite, h.x, h.y, h.angle, h.resize, h.resize, h.width/2, h.height/2)
 	 	end
+
+	    for f, a in ipairs(Player.farts) do
+	    	love.graphics.setColor(255, 255, 255, a.opacity);
+	    	love.graphics.draw(a.sprite, a.x, a.y, 0, 0.1, 0.1, a.width/2, a.height/2)
+	    end
 
 		for i, o in ipairs(Player.bullets) do
 			love.graphics.setColor(70, 70, 70, 225)
@@ -398,6 +556,26 @@ function love.load()
 			love.graphics.setColor(255, 255, 255, 255);
 			--love.graphics.setColor(0, 0, 0, 255);
 	 		--love.graphics.rectangle("line", k.x, k.y, k.width, k.height)
+		end
+
+		for b, v in ipairs(Enemy.bullets) do
+			love.graphics.setColor(70, 70, 70, 225)
+			love.graphics.circle('fill', v.x, v.y, 5, 100)
+			love.graphics.setColor(86, 83, 83, 225)
+			love.graphics.circle('fill', v.x, v.y, 4, 100)
+			love.graphics.setColor(255, 255, 255, 255)
+		end
+
+		for e, d in ipairs(Enemy.tanks.instances) do
+			
+			if(d.dir == 0) then 
+				love.graphics.draw(d.sprite, d.x, d.y, 0, 1, 1, d.width/2, d.height/2)
+				love.graphics.draw(d.spriteL, d.x + 32, d.y, 0, 1, 1, d.width/2, d.height/2) 
+			else
+				love.graphics.draw(d.sprite, d.x, d.y, 3.145, 1, 1, d.width/2, d.height/2) 
+				love.graphics.draw(d.spriteL, d.x - 32, d.y, 3.145, 1, 1, d.width/2, d.height/2) 
+			end
+			--love.graphics.rectangle("line", d.x, d.y + d.height, d.width, d.height)
 		end
 
 		if( Menu.isActive == false) then
@@ -479,7 +657,7 @@ function love.load()
 		love.graphics.print(Game.version, Window.width - 130, 7);
 
 		love.graphics.draw(Menu.buttons.start.sprite, Menu.buttons.start.x - 30, Menu.buttons.start.y, 0, 1, 1)
-		if(Game.needReset == false) then Menu.buttons.start.text = "Resume" else Menu.buttons.start.text = "Start" end
+		if(Game.needReset == false) then Menu.buttons.start.text = "Resume" elseif(Game.firstRound == true) then Menu.buttons.start.text = "Start" elseif(Game.needReset == true) then Menu.buttons.start.text = "Reset" end
 		love.graphics.print(Menu.buttons.start.text, Menu.buttons.start.x + (Menu.buttons.start.width/6) - 9, Menu.buttons.start.y + 8, 0, 1, 1);
 
 		love.graphics.draw(Menu.buttons.quit.sprite, Menu.buttons.quit.x - 30, Menu.buttons.quit.y, 0, 1, 1)
@@ -519,7 +697,7 @@ end
 
 function love.keyreleased( key )
 	if (key == "escape") then
-		if(not Game.needReset) then
+		if(not Game.needReset or not Game.firstRound) then
 			if(Menu.isActive) then
 					Game.isActive = true
 					Menu.isActive = false
@@ -533,7 +711,20 @@ function love.keyreleased( key )
 		--love.event.quit()
 	end
 
+	if key == "space" then
+		if(not Menu.isActive and not Game.needReset) then
+			spawnFart()
+		end
+	end
+	if(Game.inDebug) then
+		if key == "x" then
+			spawnTank()
+		end
 
+		if key == "y" then
+			spawnEnemy()
+		end
+	end
 end
 
 function love.textinput( text )
@@ -547,7 +738,7 @@ end
 function love.mousepressed( x, y, button )
 	if(Game.isActive) then
 		if button == 1 and Player.gun.heat <= 0 and Player.gun.rounds > 0 then
-			local direction = math.atan2(love.mouse.getY() - Player.y, love.mouse.getX() - Player.x)
+			local direction = math.atan2(love.mouse.getY() - Player.y, love.mouse.getX() - Player.x);
 
 			pistolX = Player.x + ((10* math.cos(direction)) - (10 * math.sin(direction)));
 			pistolY = Player.y + ((10* math.cos(direction)) + (10 * math.sin(direction)));
@@ -574,6 +765,13 @@ function love.mousereleased( x, y, button )
 					Game.isActive = true
 					turnShaders(false)
 				elseif Menu.buttons.start.text == "Start" then
+					Menu.isActive = false
+					Game.isActive = true
+					Game.firstRound = false,
+					turnShaders(false)
+					Game.needReset = false
+				elseif Menu.buttons.start.text == "Reset" then
+					love.load()
 					Menu.isActive = false
 					Game.isActive = true
 					turnShaders(false)
@@ -627,30 +825,51 @@ end
  ]]
 
 function getLocationOutsideBox()
-	local w = 0
-	local h = 0
+	-- local w = 0
+	-- local h = 0
 
-	local rand = love.math.random(1, 4);
+	-- local rand = love.math.random(1, 4);
 
-	if(rand == 1) then
-		w = love.math.random(-250, -200);
-		h = love.math.random(-250, Window.height + 250);
-	end
-	if(rand == 2) then
-		w = love.math.random(Window.width + 200, Window.width + 250);
-		h = love.math.random(-250, Window.height + 250);
-	end
-	if(rand == 3) then
-		w = love.math.random(-250, Window.width + 250);
-		h = love.math.random(-250, -200);
-	end
-	if(rand == 4) then
-		w = love.math.random(-250, Window.width + 250);
-		h = love.math.random(Window.height + 200, Window.height + 250);
-	end
+	-- if(rand == 1) then
+	-- 	w = love.math.random(-250, -200);
+	-- 	h = love.math.random(-250, Window.height + 250);
+	-- end
+	-- if(rand == 2) then
+	-- 	w = love.math.random(Window.width + 200, Window.width + 250);
+	-- 	h = love.math.random(-250, Window.height + 250);
+	-- end
+	-- if(rand == 3) then
+	-- 	w = love.math.random(-250, Window.width + 250);
+	-- 	h = love.math.random(-250, -200);
+	-- end
+	-- if(rand == 4) then
+	-- 	w = love.math.random(-250, Window.width + 250);
+	-- 	h = love.math.random(Window.height + 200, Window.height + 250);
+	-- end
 
-	local set = {width = w, height = h}
-	return set;
+	-- local set = {width = w, height = h}
+	-- return set;
+
+
+	 -- local near_player = true
+	 -- while near_player do
+	 --  -- Random coordinates
+	 --  local xS = love.math.random(-300, love.graphics.getWidth() + 300)
+	 --  local yS = love.math.random(-300, love.graphics.getHeight() + 300)
+
+	 --  -- Distance between player and zombie by X
+	 --  local dist_x = math.abs(Player.x - xS)
+
+	 --  -- Distance between player and zombie by Y
+	 --  local dist_y = math.abs(Player.y - yS)
+
+	 --  -- If distance > 100 by X and Y then quit loop 
+	 --  if dist_x > Window.width and dist_y > Window.height then
+	 --   near_player = false
+	 --  end
+	 -- end
+	 local result = {x = 0, y = 0}
+	 return result;
 end
 
 function turnShaders(turn)
@@ -693,6 +912,23 @@ function spawnParticles(count)
 	end
 end
 
+function spawnFart()
+
+	local randFart = love.math.random(0, 8);
+	local pSprite = love.graphics.newImage("/src/Fart/fart0"..randFart..".png");
+	local pAngle = love.math.random(0, 1);
+	table.insert(Player.farts, {
+		x = Player.x - ((pSprite:getWidth()/9)/2),
+		y = Player.y - ((pSprite:getHeight()/9)/2),
+		width = pSprite:getWidth()/9,
+		height = pSprite:getHeight()/9,
+		opacity = 240,
+		angle = pAngle,
+		sprite = pSprite,
+	});
+
+end
+
 function createParticle()
 	local pX = love.math.random(-32, Window.width + 32);
 	local pY = love.math.random(-32, Window.height + 32);
@@ -717,6 +953,39 @@ function createParticle()
 		angle = pAngle,
 		sprite = love.graphics.newImage(pSprite),
 	});
+end
+
+function spawnTank()
+	local tX = 0;
+	local tY = 0;
+	local tDir = love.math.random(0,1)
+
+	if(tDir==0)then
+		tX = -128;
+	elseif tDir==1 then
+		tX = Window.width;
+	end
+	
+	tY = love.math.random(25, Window.height - 200);
+	table.insert(Enemy.tanks.instances, {
+		x = tX,
+		y = tY,
+		width = 128,
+		height = 80,
+		speed = love.math.random(250, 350),
+		sprite = love.graphics.newImage("/src/towerDefense_tile269.png"),
+		spriteL = love.graphics.newImage("/src/towerDefense_tile292.png"),
+		dir = tDir
+
+	});
+end
+
+function checkPlayerHealth()
+	Player.lifes.amount = Player.lifes.amount - 1
+	if(Player.lifes.amount < 4) then turnShaders(false); end
+	if (Player.lifes.amount <= 0) then --debug chit
+		if(Game.inDebug) then Player.lifes.amount = 5; else Game.isActive = false; Game.needReset = true; end
+	end
 end
 
 function spawnPickup(x, y)
@@ -757,61 +1026,115 @@ function getEnemy()
 	local enemyUnlocked = 0;
 	if Game.score > 1000 then enemyUnlocked = 1; end 
 	if Game.score > 2000 then enemyUnlocked = 2; end
+	if Game.score > 3000 then enemyUnlocked = 3; end
+	if Game.score > 4500 then enemyUnlocked = 4; end
 	local enemyType = love.math.random(0, enemyUnlocked);
 	return enemyType;
 end
 
 
 function spawnEnemy()
-	local locSet = getLocationOutsideBox()
+	--local locSet = getLocationOutsideBox()
 
-	for i, o in ipairs(Enemy.instances) do
-		if rectangleCollision(o.x, o.y, o.width, o.height, locSet.width - (o.width/2), locSet.height - (o.height/2), 37 + ((o.width/2)*2), 43 + o.height) then
-			spawnEnemy()
-			return;
-		end
+	local wXX = 0
+	local hXX = 0
+
+	local randX = love.math.random(1, 4);
+
+	if(randX == 1) then
+		wXX = love.math.random(-150, -128);
+		hXX = love.math.random(-150, Window.height + 150);
 	end
+	if(randX == 2) then
+		wXX = love.math.random(Window.width + 128, Window.width + 150);
+		hXX = love.math.random(-150, Window.height + 150);
+	end
+	if(randX == 3) then
+		wXX = love.math.random(-150, Window.width + 150);
+		hXX = love.math.random(-150, -128);
+	end
+ 	if(randX == 4) then
+		wXX = love.math.random(-150, Window.width + 150);
+		hXX = love.math.random(Window.height + 128, Window.height + 150);
+	end
+	local locSet = {x = wXX, y = hXX}
+	-- for i, o in ipairs(Enemy.instances) do
+	-- 	if rectangleCollision(o.x, o.y, o.width, o.height, locSet.x - (o.width/2), locSet.y - (o.height/2), 37 + ((o.width/2)*2), 43 + o.height) then
+	-- 		spawnEnemy()
+	-- 		return;
+	-- 	end
+	-- end
 
-	local eX = locSet.width;
-	local eY = locSet.height;
+	local eX = locSet.x;
+	local eY = locSet.y;
 
 	--local eX = getLocationOutsideBox(0, 100);
 	--local eY = getLocationOutsideBox(1, 100);
-	local eSprite = "/src/survivor1_hold.png";
+	local eSprite = love.graphics.newImage( "/src/survivor1_hold.png" );
 	local eSpeed = love.math.random(15, 40);
 
 	local eHealth = 150;
+	local eCanShoot = false;
 
+	local eHeat = 0.0;
+	local eHeatp = 0.0;
+
+	local eWSpeed = 0;
+	local eID = love.math.random(0, 9999);
 	local enemyType = getEnemy();
 	local eDropRate = 45;
 	if enemyType == 0 then
-		eSprite = "/src/manOld_hold.png";
-		eSpeed = love.math.random(10, 25);
+		eSprite = love.graphics.newImage( "/src/manOld_hold.png" );
+		eSpeed = love.math.random(15, 25);
 		eHealth = 100;
-		eDropRate = 20;
+		eDropRate = 5;
+		eCanShoot = false;
 	elseif enemyType == 1 then
-		eSprite = "/src/survivor1_hold.png";
-		eSpeed = love.math.random(15, 40);
+		eSprite = love.graphics.newImage( "/src/survivor1_hold.png" );
+		eSpeed = love.math.random(30, 45);
 		eHealth = 150;
-		eDropRate = 45;
+		eDropRate = 10;
+		eCanShoot = false;
 	elseif enemyType == 2 then
-		eSprite = "/src/robot1_hold.png";
-		eSpeed = love.math.random(30, 50);
-		eHealth = 225;
-		eDropRate = 65;
+		eSprite = love.graphics.newImage( "/src/robot1_hold.png" );
+		eSpeed = love.math.random(10, 20);
+		eHealth = 350;
+		eDropRate = 20;
+		eCanShoot = false;
+	elseif enemyType == 3 then
+		eSprite = love.graphics.newImage( "/src/soldier1_gun.png" );
+		eSpeed = love.math.random(40, 55);
+		eHealth = 175;
+		eDropRate = 35;
+		eCanShoot = true;
+		eHeatp = 1.5
+		eWSpeed = 150;
+	elseif enemyType == 4 then
+		eSprite = love.graphics.newImage( "/src/hitman1_silencer.png" );
+		eSpeed = love.math.random(55, 75);
+		eHealth = 100;
+		eDropRate = 42;
+		eCanShoot = true;
+		eHeatp = 1.0
+		eWSpeed = 300;
 	end
 
 	table.insert(Enemy.instances, {
+		id = eID,
 		x = eX,
 		y = eY,
-		width = 37,
-		height = 43,
+		width = eSprite:getWidth(),
+		height = eSprite:getHeight(),
 		angle = 0,
 		health = eHealth,
 		maxHealth = eHealth,
 		dropRate = eDropRate,
 		speed = eSpeed,
-		sprite = love.graphics.newImage( eSprite ),
+		sprite =  eSprite ,
+		weapon = { speed = eWSpeed, },
+		isShooting = eCanShoot,
+		heat = 0.0,
+		heatp = eHeatp,
 	});
 
 
