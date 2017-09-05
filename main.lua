@@ -32,8 +32,9 @@ function init()
 	end
 
 	love.graphics.setFont(Window.font, 15)
-	spawnParticles(35);
+	spawnParticles(love.math.random(10, 35));
 	turnShaders(true)
+	setupSpriteBatch()
 end
 
 function love.load()
@@ -42,7 +43,7 @@ function love.load()
 			width = 1024,
 			height = 768,
 			focus = love.window.hasFocus(),
-			background = love.graphics.newImage( "/src/tile_46.png" ),
+			background = love.graphics.newImage( "/src/tile_100.png" ),
 			font = love.graphics.newFont("/src/kenpixel_mini_square.ttf", 22)
 		}
 
@@ -103,6 +104,8 @@ function love.load()
 				amount = 5,
 			},
 
+			canControl = true,
+
 			farts = {},
 			bullets = {},
 			gun = {
@@ -120,6 +123,7 @@ function love.load()
 		Enemy = {
 			instances = { },
 			bullets = {},
+			canSpawn = true,
 			respawnTime = 2,
 			maxRespawnTime = 5,
 			multiplier = 1,
@@ -141,12 +145,36 @@ function love.load()
 
 	--[[ Environment ]]--
 		Environment = {
-			Map = {
+			map = {
+				index = 0,
+				scoreNeeded = 5000,
 				spriteBatch = love.graphics.newSpriteBatch(Window.background, 100),
 				maxX = math.ceil(Window.width  / Window.background:getWidth())  + 2,
   				maxY = math.ceil(Window.height / Window.background:getHeight()) + 2,
   				
   				particles = {}
+			},
+			teleporter = {
+				x = Window.width/2,
+				y = Window.height/2,
+				width = 64,
+				height = 64,
+				sprite = love.graphics.newImage("/src/tile_505.png"),
+				isActive = false,
+			},
+			blackbar = {
+				width = Window.width,
+				height = Window.height/2,
+				x = 0,
+				y1 = -Window.height/2,
+				y2 = Window.height,
+				delay = false,
+				animation = "none",
+				speed = 750,
+			},
+			wind = {
+				speed = love.math.random(50, 275),
+				dir = math.atan2(love.math.random(0, Window.height)-love.math.random(0, Window.height), love.math.random(0, Window.width)-love.math.random(0, Window.width)),
 			}
 		}
 	--[[ ---------- ]]--
@@ -165,8 +193,8 @@ function love.load()
 	
 	love.mouse.setVisible( false )
 
-	local size = Environment.Map.maxX * Environment.Map.maxY
-	Environment.Map.spriteBatch = love.graphics.newSpriteBatch(Window.background, size)
+	local size = Environment.map.maxX * Environment.map.maxY
+	Environment.map.spriteBatch = love.graphics.newSpriteBatch(Window.background, size)
 
 	init();
  end
@@ -195,7 +223,7 @@ function love.load()
 		end
 
  	if(Game.isActive) then
- 			Player.angle = math.atan2(love.mouse.getY()-Player.y, love.mouse.getX()-Player.x);
+ 			if Player.canControl then Player.angle = math.atan2(love.mouse.getY()-Player.y, love.mouse.getX()-Player.x); end
 
 			Player.gun.heat = math.max(0, Player.gun.heat - dt);
 			if(Player.gun.reloadTime > 0.0) then Player.gun.reloadTime = math.max(0, Player.gun.reloadTime - dt); end
@@ -239,6 +267,7 @@ function love.load()
 			if(Pickups.speedTime == 0.0) then
 				Player.speed = 100;
 				Pickups.speedTime = -1;
+				Player.reloadTime = Player.gun.reloadTime + (Player.gun.reloadTime/2);
 				turnShaders(false);
 			end
 
@@ -295,6 +324,9 @@ function love.load()
 		    end
 
 		    for f, a in ipairs(Player.farts) do
+		    	a.x = a.x + math.cos(Environment.wind.dir) * Environment.wind.speed * dt
+				a.y = a.y + math.sin(Environment.wind.dir) * Environment.wind.speed * dt
+
 		    	a.opacity = math.max(0, (a.opacity - 2.5) - dt);
 
 		    	if(a.opacity <= 0) then table.remove(Player.farts, f); end
@@ -345,7 +377,8 @@ function love.load()
 		    			end
 		    		elseif h.pickup == 1 then
 		    			Player.speed = 250;
-		    			Pickups.speedTime = 5.0
+		    			Pickups.speedTime = 5.0;
+		    			Player.reloadTime = Player.gun.reloadTime - (Player.gun.reloadTime/2);
 		    			table.remove(Pickups.instances, g);
 		    			turnShaders(false);
 		    			--Pickups.respawnTime = love.math.random(10.0, 30.0)
@@ -364,21 +397,25 @@ function love.load()
 		    	end
 		    end
 
-		    if (love.keyboard.isDown("w") or love.keyboard.isDown("up")) then
-		    	Player.y = Player.y - Player.speed * dt;
-		    end
+		    if Player.canControl then
 
-		    if (love.keyboard.isDown("s") or love.keyboard.isDown("down")) then
-		    	Player.y = Player.y + Player.speed * dt;
-		    end
+			    if (love.keyboard.isDown("w") or love.keyboard.isDown("up")) then
+			    	Player.y = Player.y - Player.speed * dt;
+			    end
 
-		    if (love.keyboard.isDown("a") or love.keyboard.isDown("left")) then
-		    	Player.x = Player.x - Player.speed * dt;
-		    end
+			    if (love.keyboard.isDown("s") or love.keyboard.isDown("down")) then
+			    	Player.y = Player.y + Player.speed * dt;
+			    end
 
-		    if (love.keyboard.isDown("d") or love.keyboard.isDown("right")) then
-		    	Player.x = Player.x + Player.speed * dt;
-		    end
+			    if (love.keyboard.isDown("a") or love.keyboard.isDown("left")) then
+			    	Player.x = Player.x - Player.speed * dt;
+			    end
+
+			    if (love.keyboard.isDown("d") or love.keyboard.isDown("right")) then
+			    	Player.x = Player.x + Player.speed * dt;
+			    end
+
+		   	end
 
 		    if(Player.x >= Window.width - Player.width) then
 		    	Player.x = Window.width - Player.width
@@ -497,6 +534,76 @@ function love.load()
 		    end
 
 			
+		    if Game.score >= Environment.map.scoreNeeded and Environment.teleporter.isActive == false then
+		    	if Enemy.canSpawn == true then Enemy.canSpawn = false end
+
+		    	local eCount = 0;
+		    	for i, o in ipairs(Enemy.instances) do
+		    		eCount = eCount + 1
+		    	end
+
+		    	if eCount <= 0 then
+		    		spawnTeleporter();
+		    	end
+		    end
+
+
+		    if Environment.teleporter.isActive and Player.canControl then
+		    	if rectangleCollision(Environment.teleporter.x, Environment.teleporter.y, Environment.teleporter.width, Environment.teleporter.height, Player.x, Player.y, Player.width, Player.height) then
+		    		Player.canControl = false;
+		    		Player.x = Environment.teleporter.x;
+		    		Player.y = Environment.teleporter.y;
+		    		Player.angle = -1.535;
+		    		Environment.blackbar.animation = "down"
+		    	end
+		    end
+
+			-- if Environment.blackbar.animation == "down" then
+
+			-- 	while Environment.blackbar.y1 < 0 do
+
+		 --    	Environment.blackbar.y1 = Environment.blackbar.y1 + Environment.blackbar.speed * dt;
+		 --    	Environment.blackbar.y2 = Environment.blackbar.y2 - Environment.blackbar.speed * dt;
+
+			-- 	end
+
+
+		 --    	if Environment.blackbar.y1 >= 0 then
+		 --    		if Environment.blackbar.y1 > 0 then Environment.blackbar.y1 = 0 end
+		 --    		if Environment.blackbar.y2 < Window.height/2 then Environment.blackbar.y2 = Window.height/2 end
+
+		 --    		Environment.blackbar.animation = "none";
+		 --    		Environment.blackbar.delay = true;
+		 --    		nextMap()
+		 --    	end
+		 --    end
+
+		    if Environment.blackbar.animation == "down" then
+		    	Environment.blackbar.y1 = Environment.blackbar.y1 + Environment.blackbar.speed * dt;
+		    	Environment.blackbar.y2 = Environment.blackbar.y2 - Environment.blackbar.speed * dt;
+
+		    	if Environment.blackbar.y1 >= 0 then
+		    		if Environment.blackbar.y1 > 0 then Environment.blackbar.y1 = 0 end
+		    		if Environment.blackbar.y2 < Window.height/2 then Environment.blackbar.y2 = Window.height/2 end
+
+		    		Environment.blackbar.animation = "none";
+		    		Environment.blackbar.delay = true;
+		    		nextMap()
+		    	end
+		    end
+
+		    if Environment.blackbar.animation == "up" then
+		    	Environment.blackbar.y1 = Environment.blackbar.y1 - Environment.blackbar.speed * dt;
+		    	Environment.blackbar.y2 = Environment.blackbar.y2 + Environment.blackbar.speed * dt;
+
+		    	if Environment.blackbar.y1 + Environment.blackbar.height <= 0 then
+		    		Environment.map.scoreNeeded = Environment.map.scoreNeeded * 2;
+		    		Environment.blackbar.animation = "none";
+		    		Environment.teleporter.isActive = false;
+		    		Enemy.canSpawn = true;
+		    		Player.canControl = true;
+		    	end
+		    end
 		--[[ -------- ]]--
 			--fpsGraph.updateFPS(fps, dt)
 	else
@@ -524,16 +631,20 @@ function love.load()
 		end
 	end
 
-	setupSpriteBatch()
+	--setupSpriteBatch()
  end
 
  function love.draw()
  	post_effect:draw(function()
-	 	love.graphics.draw(Environment.Map.spriteBatch);
+	 	love.graphics.draw(Environment.map.spriteBatch);
 
-	 	for t, z in ipairs(Environment.Map.particles) do
+	 	for t, z in ipairs(Environment.map.particles) do
 	 		love.graphics.draw(z.sprite, z.x, z.y, z.angle, 0.6, 0.6, z.width/2, z.height/2)
 	 	end
+
+		if Environment.teleporter.isActive then
+			love.graphics.draw(Environment.teleporter.sprite, Environment.teleporter.x, Environment.teleporter.y, 0, 1, 1, Environment.teleporter.width/2, Environment.teleporter.height/2)
+		end
 
 	 	for g, h in ipairs(Pickups.instances) do
 	 		love.graphics.setColor(0, 0, 0, 50);
@@ -661,6 +772,11 @@ function love.load()
 		end
 	end
 
+	love.graphics.setColor(0, 0, 0, 255);
+	love.graphics.rectangle("fill", Environment.blackbar.x, Environment.blackbar.y1, Environment.blackbar.width, Environment.blackbar.height)
+	love.graphics.rectangle("fill", Environment.blackbar.x, Environment.blackbar.y2, Environment.blackbar.width, Environment.blackbar.height)
+	love.graphics.setColor(255, 255, 255, 255);
+
 	if (Menu.isActive) then
 		-- for i = 0, Menu.buttons.count, 1 do
 		-- 	love.g
@@ -701,7 +817,7 @@ function love.load()
 
 function love.keypressed( key, isrepeat )
 	if(Game.isActive) then
-		if (key == "r" and Player.gun.canReload) then
+		if (key == "r" and Player.gun.canReload and Player.canControl) then
 			Player.gun.reloadTime = 0.75;
 			Player.gun.rounds = 0;
 			Player.gun.canReload = false;
@@ -738,6 +854,10 @@ function love.keyreleased( key )
 		if key == "y" then
 			spawnEnemy()
 		end
+
+		if key == "c" then
+			Game.score = Game.score + 500;
+		end
 	end
 end
 
@@ -751,7 +871,7 @@ end
 
 function love.mousepressed( x, y, button )
 	if(Game.isActive) then
-		if button == 1 and Player.gun.heat <= 0 and Player.gun.rounds > 0 then
+		if button == 1 and Player.gun.heat <= 0 and Player.gun.rounds > 0 and Player.canControl then
 			local direction = math.atan2(love.mouse.getY() - Player.y, love.mouse.getX() - Player.x);
 
 			pistolX = Player.x + ((10* math.cos(direction)) - (10 * math.sin(direction)));
@@ -839,7 +959,45 @@ end
  ]]--
 
 function twoSec_Timer(dt)
+	if Environment.blackbar.delay then
+		Environment.blackbar.delay = false;
+		Environment.blackbar.animation = "up";
+	end
+end
 
+function spawnTeleporter()
+	--Environment.teleporter.isActive = true
+
+	Environment.teleporter.x = love.math.random(150, Window.width - 150)
+	Environment.teleporter.y = love.math.random(150, Window.height - 150)
+
+	if rectangleCollision(Environment.teleporter.x, Environment.teleporter.y, Environment.teleporter.width, Environment.teleporter.height, Player.x, Player.y, Player.width + 200, Player.height + 200) then
+		Environment.teleporter.isActive = false
+		spawnTeleporter();
+		return;
+	end
+
+	Environment.teleporter.isActive = true
+end
+
+function nextMap()
+	Environment.map.index = Environment.map.index + 1
+
+	if Environment.map.index == 1 then
+		Window.background = love.graphics.newImage("/src/tile_17.png")
+		local size = Environment.map.maxX * Environment.map.maxY
+		Environment.map.spriteBatch = love.graphics.newSpriteBatch(Window.background, size)
+		setupSpriteBatch()
+		spawnParticles(love.math.random(10, 30));
+	end
+
+	if Environment.map.index == 2 then
+		Window.background = love.graphics.newImage("/src/tile_09.png")
+		local size = Environment.map.maxX * Environment.map.maxY
+		Environment.map.spriteBatch = love.graphics.newSpriteBatch(Window.background, size)
+		setupSpriteBatch()
+		spawnParticles(love.math.random(10, 30));
+	end
 end
 
 function getLocationOutsideBox()
@@ -911,9 +1069,9 @@ function turnShaders(turn)
 	    -- you can also provide parameters on effect construction
 	    local desaturate = shine.desaturate{strength = 0.15, tint = {255,250,200}}
 
-	 	if Player.lifes.amount == 3 then desaturate = shine.desaturate{strength = 0.2, tint = {255, 229, 229}}; vignette.parameters = {radius = 0.7, opacity = 0.5} end
-	 	if Player.lifes.amount == 2 then desaturate = shine.desaturate{strength = 0.4, tint = {252, 209, 209}}; vignette.parameters = {radius = 0.6, opacity = 0.6} end
-	 	if Player.lifes.amount == 1 then desaturate = shine.desaturate{strength = 0.5, tint = {252, 196, 196}}; vignette.parameters = {radius = 0.5, opacity = 0.7} end
+	 	if Player.lifes.amount == 3 then desaturate = shine.desaturate{strength = 0.2, tint = {255, 229, 229}}; vignette.parameters = {radius = 0.8, opacity = 0.55} end
+	 	if Player.lifes.amount == 2 then desaturate = shine.desaturate{strength = 0.4, tint = {252, 209, 209}}; vignette.parameters = {radius = 0.7, opacity = 0.60} end
+	 	if Player.lifes.amount == 1 then desaturate = shine.desaturate{strength = 0.5, tint = {252, 196, 196}}; vignette.parameters = {radius = 0.6, opacity = 0.65} end
 	 	
 	 	if Pickups.speedTime > 0.0 then desaturate = shine.desaturate{strength = 0.4, tint = {86, 180, 255}}; vignette.parameters = {radius = 0.99, opacity = 0.3} end
 
@@ -925,6 +1083,10 @@ function turnShaders(turn)
 end
 
 function spawnParticles(count)
+	for j, k in ipairs(Environment.map.particles) do
+		table.remove(Environment.map.particles, j);
+	end
+
 	for i = 0, count, 1 do
 		createParticle()
 	end
@@ -952,7 +1114,7 @@ function createParticle()
 	local pY = love.math.random(-32, Window.height + 32);
 	local pAngle = love.math.random(0.01, 0.99);
 
-	for i, o in ipairs(Environment.Map.particles) do
+	for i, o in ipairs(Environment.map.particles) do
 		if rectangleCollision(o.x, o.y, o.width, o.height, pX, pY, 64, 64) then
 			createParticle();
 			return;
@@ -963,7 +1125,7 @@ function createParticle()
 	local pSprite = "/src/tile_"..love.math.random(0, 12)..".png";
 
 
-	table.insert(Environment.Map.particles, {
+	table.insert(Environment.map.particles, {
 		x = pX,
 		y = pY,
 		width = 64,
@@ -974,6 +1136,8 @@ function createParticle()
 end
 
 function spawnTank()
+	if Enemy.canSpawn == false then return; end
+
 	local tX = 0;
 	local tY = 0;
 	local tDir = love.math.random(0,1)
@@ -1053,6 +1217,7 @@ end
 
 function spawnEnemy()
 	--local locSet = getLocationOutsideBox()
+	if Enemy.canSpawn == false then return; end
 
 	local wXX = 0
 	local hXX = 0
@@ -1161,17 +1326,17 @@ end
 function maybe(x) if 100 * math.random() < x then return true else return false end  end 
 
 function setupSpriteBatch()
-  Environment.Map.spriteBatch:clear()
+  Environment.map.spriteBatch:clear()
 
   -- Set up (but don't draw) our images in a grid
-  for y = 0, Environment.Map.maxY do
-    for x = 0, Environment.Map.maxX do
+  for y = 0, Environment.map.maxY do
+    for x = 0, Environment.map.maxX do
       -- Convert our x/y grid references to x/y pixel coordinates
-      local xPos = x * Window.background:getWidth()
+      local xPos = x * (Window.background:getWidth())
       local yPos = y * Window.background:getHeight()
 
       -- Add the image we previously set to this point
-      Environment.Map.spriteBatch:add(xPos, yPos)
+      Environment.map.spriteBatch:add(xPos, yPos)
     end
   end
 end
