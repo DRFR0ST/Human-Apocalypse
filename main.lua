@@ -151,6 +151,12 @@ function love.load()
 		}
 	--[[ ---------- ]]--
 
+	--[[ Timer ]]--
+		Timer = {
+			twoSec = 2.0,
+		}
+	--[[ ------ ]]--
+
 	--[[ Settings ]]--
 		--fpsGraph = require "FPSGraph"
 		--fps = fpsGraph.createGraph()
@@ -196,6 +202,14 @@ function love.load()
 			Enemy.respawnTime = math.max(0, Enemy.respawnTime - dt);
 			Enemy.tanks.respawnTime = math.max(0, Enemy.tanks.respawnTime - dt);
 			if(Pickups.speedTime > 0.0) then Pickups.speedTime = math.max(0, Pickups.speedTime - dt); end
+			Timer.twoSec = math.max(0, Timer.twoSec - dt);
+
+
+			if Timer.twoSec <= 0.0 then
+				twoSec_Timer(dt);
+				Timer.twoSec = 2.0
+			end
+
 			-- if(Pickups.respawnTime > 0.0) then Pickups.respawnTime = math.max(0, Pickups.respawnTime - dt); end
 
 			if(Enemy.respawnTime <= 0.0) then
@@ -793,7 +807,7 @@ end
    \ \/  \/ / | | '_ \ / _` |/ _ \ \ /\ / /
     \  /\  /  | | | | | (_| | (_) \ V  V / 
      \/  \/   |_|_| |_|\__,_|\___/ \_/\_/                                             
-]]
+]]--
 
 function love.focus( f )
 
@@ -822,7 +836,11 @@ end
  |  __| | | | '_ \ / __| __| |/ _ \| '_ \/ __|
  | |  | |_| | | | | (__| |_| | (_) | | | \__ \
  |_|   \__,_|_| |_|\___|\__|_|\___/|_| |_|___/                                            
- ]]
+ ]]--
+
+function twoSec_Timer(dt)
+
+end
 
 function getLocationOutsideBox()
 	-- local w = 0
