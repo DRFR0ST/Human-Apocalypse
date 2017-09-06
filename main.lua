@@ -60,7 +60,7 @@ function love.load()
 			firstRound = true,
 			isActive = false,		
 			needReset = true,
-			version = "Alpha v0.2",
+			version = "Alpha v0.3",
 			score = 0,
 		}
 	--[[ ---- ]]--
@@ -286,8 +286,8 @@ function love.load()
 			        if(circle_and_rectangle_overlap(o.x, o.y, 4, m.x - (m.width / 2), m.y - (m.height / 2), m.width, m.height) and o.hit == false)then
 			        	o.hit = true;
 			        	table.remove(Player.bullets, i);
-			        	m.knockBack.dir = math.atan2(m.y - o.y, m.x - o.x);
-			        	m.knockBack.speed = 3.5;
+			        	m.knockBack.dir = m.angle;
+			        	m.knockBack.speed = 50;
 		    			
 			        	local damage = love.math.random(25, 60);
 			        	if(circle_and_rectangle_overlap(o.x, o.y, 4, m.x - (m.width / 4), m.y - (m.height / 2), m.width/2, m.height)) then
@@ -463,16 +463,18 @@ function love.load()
 			    				end
 				        	end
 				        end
-					    for i, o in ipairs(Enemy.bullets) do
+					    --for i, o in ipairs(Enemy.bullets) do
 
 					        if(circle_and_rectangle_overlap(o.x, o.y, 4, Player.x - (Player.width / 2), Player.y - (Player.height / 2), Player.width, Player.height))then
 					        	table.remove(Enemy.bullets, i);
 					        	--Player.lifes.amount = Player.lifes.amount - 1
-
-			    				checkPlayerHealth();
+					        	Player.knockBack.speed = 100;
+					    		Player.knockBack.dir = math.atan2(Player.y - o.y, Player.x - o.x);
+								checkPlayerHealth()
+					    		--Player.immortal = true;
 					        end
 
-					    end
+					    --end
 						-- clean up out-of-screen bullets:
 							for i = #Enemy.bullets, 1, -1 do
 						        local o = Enemy.bullets[i]
@@ -485,9 +487,13 @@ function love.load()
 
 		    if Player.knockBack.speed > -1 then
 		    	if Player.knockBack.speed > 0 then
-					Player.x = Player.x + ((Player.knockBack.speed* math.cos(Player.knockBack.dir)) - (Player.knockBack.speed * math.sin(Player.knockBack.dir)));
-					Player.y = Player.y + ((Player.knockBack.speed* math.cos(Player.knockBack.dir)) + (Player.knockBack.speed * math.sin(Player.knockBack.dir)));
-		    		Player.knockBack.speed = Player.knockBack.speed - ((Player.knockBack.speed*8)*dt)
+					--Player.x = Player.x + ((Player.knockBack.speed* math.cos(Player.knockBack.dir)) - (Player.knockBack.speed * math.sin(Player.knockBack.dir)));
+					--Player.y = Player.y + ((Player.knockBack.speed* math.cos(Player.knockBack.dir)) + (Player.knockBack.speed * math.sin(Player.knockBack.dir)));
+		    		--Player.knockBack.speed = Player.knockBack.speed - ((Player.knockBack.speed*8)*dt)
+
+		    		Player.x = Player.x + math.cos(Player.knockBack.dir) * Player.knockBack.speed * dt
+				    Player.y = Player.y + math.sin(Player.knockBack.dir) * Player.knockBack.speed * dt
+			    	Player.knockBack.speed = Player.knockBack.speed-(Player.knockBack.speed+100)*dt
 		    	else
 		    		Player.knockBack.speed = -1;
 		    		Player.knockBack.dir = 0;
@@ -497,13 +503,14 @@ function love.load()
 		    for j, k in ipairs(Enemy.instances) do
 		    	--k.x = k.x + ((Player.x - k.x) * 1000)
 		    	--k.y = k.y + ((Player.y - k.y) * 1000)
+				k.angle = math.atan2(Player.y-k.y, Player.x-k.x);
 
 		    	if(rectangleCollision(Player.x, Player.y, Player.width, Player.height, k.x, k.y, k.width, k.height)) then
 		    		--table.remove(Enemy.instances, j);
-		    		Player.knockBack.speed = 5;
+		    		Player.knockBack.speed = 200;
 		    		Player.knockBack.dir = math.atan2(Player.y - k.y, Player.x - k.x);
 					checkPlayerHealth()
-		    		Player.immortal = true;
+		    		--Player.immortal = true;
 		    	end
 				if k.isShooting then
 					if k.x <= Window.width - (k.width/2) and k.x + (k.width/2) >= 0 and k.y <= Window.height - (k.height/2) and k.y + (k.height/2) >= 0 then
@@ -531,9 +538,11 @@ function love.load()
 
 			    if k.knockBack.speed > -1 then
 			    	if k.knockBack.speed > 0 then
-						k.x = k.x + ((k.knockBack.speed* math.cos(k.knockBack.dir)) - (k.knockBack.speed * math.sin(k.knockBack.dir)));
-						k.y = k.y + ((k.knockBack.speed* math.cos(k.knockBack.dir)) + (k.knockBack.speed * math.sin(k.knockBack.dir)));
-			    		k.knockBack.speed = k.knockBack.speed - ((k.knockBack.speed*k.weight) *dt)
+						--k.x = k.x + ((k.knockBack.speed* math.cos(k.knockBack.dir)) - (k.knockBack.speed * math.sin(k.knockBack.dir)));
+						--k.y = k.y + ((k.knockBack.speed* math.cos(k.knockBack.dir)) + (k.knockBack.speed * math.sin(k.knockBack.dir)));
+					    k.x = k.x - math.cos(k.knockBack.dir) * k.knockBack.speed * dt
+				        k.y = k.y - math.sin(k.knockBack.dir) * k.knockBack.speed * dt
+			    		k.knockBack.speed = k.knockBack.speed-(k.knockBack.speed-10)*dt
 			    	else
 			    		k.knockBack.speed = -1;
 			    		k.knockBack.dir = 0;
@@ -697,7 +706,6 @@ function love.load()
 
 		love.graphics.setColor(255, 255, 255, 255)
 		for j, k in ipairs(Enemy.instances) do
-			k.angle = math.atan2(Player.y-k.y, Player.x-k.x);
 			love.graphics.draw(k.sprite, k.x, k.y, k.angle, 1, 1, k.width/2, k.height/2);
 
 			local eHlth = (k.health*100)/k.maxHealth;
@@ -785,9 +793,9 @@ function love.load()
 		end
 
 		love.graphics.setColor(0, 0, 0, 50);
-		love.graphics.print("Score "..Game.score, 96, Window.height - 106);
+		love.graphics.print("Score "..math.floor(Game.score), 96, Window.height - 106);
 		love.graphics.setColor(255, 255, 255, 255);
-		love.graphics.print("Score "..Game.score, 93, Window.height - 108);
+		love.graphics.print("Score "..math.floor(Game.score), 93, Window.height - 108);
 
 		if(Pickups.speedTime > 0.0) then
 		local eSpeedBar = (Pickups.speedTime*100)/5.0;
@@ -1257,7 +1265,7 @@ function spawnEnemy()
 	local enemyType = getEnemy();
 	local eDropRate = 45;
 	local eScoreMulti = 1.2;
-	local eWeight = 4;
+	local eWeight = 40/2;
 	if enemyType == 0 then
 		eSprite = love.graphics.newImage( "/src/manOld_hold.png" );
 		eSpeed = love.math.random(15, 25);
@@ -1265,7 +1273,7 @@ function spawnEnemy()
 		eDropRate = 5;
 		eCanShoot = false;
 		eScoreMulti = 1.0;
-		eWeight = 4;
+		eWeight = 40/2;
 	elseif enemyType == 1 then
 		eSprite = love.graphics.newImage( "/src/survivor1_hold.png" );
 		eSpeed = love.math.random(30, 45);
@@ -1273,7 +1281,7 @@ function spawnEnemy()
 		eDropRate = 10;
 		eCanShoot = false;
 		eScoreMulti = 1.2;
-		eWeight = 4;
+		eWeight = 40/2;
 	elseif enemyType == 2 then
 		eSprite = love.graphics.newImage( "/src/robot1_hold.png" );
 		eSpeed = love.math.random(10, 20);
@@ -1281,7 +1289,7 @@ function spawnEnemy()
 		eDropRate = 20;
 		eCanShoot = false;
 		eScoreMulti = 1.5;
-		eWeight = 8;
+		eWeight = 80/2;
 	elseif enemyType == 3 then
 		eSprite = love.graphics.newImage( "/src/soldier1_gun.png" );
 		eSpeed = love.math.random(40, 55);
@@ -1291,17 +1299,17 @@ function spawnEnemy()
 		eHeatp = 1.5
 		eWSpeed = 150;
 		eScoreMulti = 1.6;
-		eWeight = 6;
+		eWeight = 60/2;
 	elseif enemyType == 4 then
 		eSprite = love.graphics.newImage( "/src/hitman1_silencer.png" );
 		eSpeed = love.math.random(55, 75);
 		eHealth = 100;
 		eDropRate = 42;
 		eCanShoot = true;
-		eHeatp = 1.0
+		eHeatp = 1.0;
 		eWSpeed = 300;
 		eScoreMulti = 1.8;
-		eWeight = 5;
+		eWeight = 40/2;
 	end
 
 	table.insert(Enemy.instances, {
