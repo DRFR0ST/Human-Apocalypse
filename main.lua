@@ -60,7 +60,7 @@ function love.load()
 			firstRound = true,
 			isActive = false,		
 			needReset = true,
-			version = "Alpha v0.3",
+			version = "Alpha v1.0",
 			score = 0,
 		}
 	--[[ ---- ]]--
@@ -106,6 +106,8 @@ function love.load()
 				amount = 5,
 			},
 
+			mode = { armed = love.graphics.newImage("/src/zoimbie1_gun.png"),standing = love.graphics.newImage("/src/zoimbie1_stand.png"),sitting = love.graphics.newImage("/src/zoimbie1_hold.png"),armed_auto = love.graphics.newImage("/src/zoimbie1_machine.png"),reloading = love.graphics.newImage("/src/zoimbie1_reload.png")},
+
 			canControl = true,
 
 			farts = {},
@@ -113,9 +115,14 @@ function love.load()
 			gun = {
 				heat = 0,
 				heatp = 0.0,
-				rounds = 6,
+				rounds = 7,
 				reloadTime = -1,
 				canReload = true,
+				canReloadAuto = true,
+				id = 1,
+				roundsAuto = 36,
+				maxAutoRounds = 4,
+				canShoot = true,
 			},
 
 		}
@@ -162,6 +169,7 @@ function love.load()
 				width = 64,
 				height = 64,
 				sprite = love.graphics.newImage("/src/tile_505.png"),
+				spriteTV = love.graphics.newImage("/src/tile_536.png"),
 				isActive = false,
 			},
 			blackbar = {
@@ -274,8 +282,24 @@ function love.load()
 			end
 
 			if(Player.gun.reloadTime == 0.0)then
-				Player.gun.rounds = 7;
-				Player.gun.canReload = true;
+				if Player.gun.id == 1 then
+					Player.gun.rounds = 7;
+					Player.gun.canReload = true;
+					Player.gun.canShoot = true;
+				elseif Player.gun.id == 2 then
+					if Player.gun.maxAutoRounds > 0 then
+						if Player.gun.maxAutoRounds >= 1 then
+							Player.gun.roundsAuto = 36;
+							Player.gun.maxAutoRounds = Player.gun.maxAutoRounds - 1
+						else 
+							Player.gun.roundsAuto = Player.gun.maxAutoRounds;
+							Player.gun.maxAutoRounds = 0;
+						end
+						Player.sprite = Player.mode.armed_auto;
+						Player.gun.canReloadAuto = true;
+						Player.gun.canShoot = true;
+					end
+				end
 				Player.gun.reloadTime = -1;
 			end
 			-- update bullets:
@@ -388,6 +412,8 @@ function love.load()
 		    			table.remove(Pickups.instances, g);
 		    			turnShaders(false);
 		    			--Pickups.respawnTime = love.math.random(10.0, 30.0)
+		    		elseif h.pickup == 2 then
+		    			Player.gun.maxAutoRounds = Player.gun.maxAutoRounds + love.math.random(1, 6);
 		    		end
 		    	end
 
@@ -483,6 +509,28 @@ function love.load()
 						            table.remove(Enemy.bullets, i)
 						        end
 						    end
+		    end
+
+		    if Player.gun.id == 2 and love.mouse.isDown(1) then
+		    	if Player.gun.heat <= 0 and Player.gun.roundsAuto > 0 and Player.canControl then
+		    		if not Player.gun.canShoot then return end
+					local direction = math.atan2(love.mouse.getY() - Player.y, love.mouse.getX() - Player.x);
+
+					pistolX = Player.x + ((10* math.cos(direction)) - (10 * math.sin(direction)));
+					pistolY = Player.y + ((10* math.cos(direction)) + (10 * math.sin(direction)));
+
+					table.insert(Player.bullets, {
+						x = pistolX,
+						y = pistolY,
+						dir = direction,
+						hit = false,
+						speed = 2000
+					})
+					Player.gun.heat = Player.gun.heatp
+					Player.gun.roundsAuto = Player.gun.roundsAuto - 1
+					Player.knockBack.speed = 25;
+		    		Player.knockBack.dir = math.atan2(Player.y - pistolY, Player.x - pistolX);
+				end
 		    end
 
 		    if Player.knockBack.speed > -1 then
@@ -588,12 +636,13 @@ function love.load()
 
 
 		    if Environment.teleporter.isActive and Player.canControl then
-		    	if rectangleCollision(Environment.teleporter.x, Environment.teleporter.y, Environment.teleporter.width, Environment.teleporter.height, Player.x, Player.y, Player.width, Player.height) then
+		    	if rectangleCollision(Environment.teleporter.x + 10, Environment.teleporter.y + 10, Environment.teleporter.width - 10, Environment.teleporter.height - 10, Player.x, Player.y, Player.width, Player.height) then
 		    		Player.canControl = false;
 		    		Player.x = Environment.teleporter.x;
-		    		Player.y = Environment.teleporter.y;
+		    		Player.y = Environment.teleporter.y - 5;
+		    		Player.sprite = Player.mode.sitting;
 		    		Player.angle = -1.535;
-		    		Environment.blackbar.animation = "down"
+		    		Environment.blackbar.animation = "down";
 		    	end
 		    end
 
@@ -641,6 +690,7 @@ function love.load()
 		    		Environment.teleporter.isActive = false;
 		    		Enemy.canSpawn = true;
 		    		Player.canControl = true;
+		    		Player.sprite = Player.mode.armed;
 		    	end
 		    end
 		--[[ -------- ]]--
@@ -683,6 +733,7 @@ function love.load()
 
 		if Environment.teleporter.isActive then
 			love.graphics.draw(Environment.teleporter.sprite, Environment.teleporter.x, Environment.teleporter.y, 0, 1, 1, Environment.teleporter.width/2, Environment.teleporter.height/2)
+			love.graphics.draw(Environment.teleporter.spriteTV, Environment.teleporter.x, Environment.teleporter.y - 96, 3.15, 1, 1, Environment.teleporter.width/2, Environment.teleporter.height/2);
 		end
 
 	 	for g, h in ipairs(Pickups.instances) do
@@ -729,6 +780,14 @@ function love.load()
 			love.graphics.setColor(255, 255, 255, 255)
 		end
 
+	 	love.graphics.draw(Player.sprite, Player.x, Player.y, Player.angle, 1, 1, Player.width/2, Player.height/2);
+		if( Menu.isActive == false) then
+			love.graphics.setColor(0, 0, 0, 50);
+			love.graphics.circle("line", Mouse.x + 3, Mouse.y + 2, 10.7, 100)
+			love.graphics.setColor(255, 255, 255, 255);
+			love.graphics.circle("line", Mouse.x, Mouse.y, 11, 100)
+		end
+
 		for e, d in ipairs(Enemy.tanks.instances) do
 			
 			if(d.dir == 0) then 
@@ -741,14 +800,8 @@ function love.load()
 			--love.graphics.rectangle("line", d.x, d.y + d.height, d.width, d.height)
 		end
 
-		if( Menu.isActive == false) then
-			love.graphics.setColor(0, 0, 0, 50);
-			love.graphics.circle("line", Mouse.x + 3, Mouse.y + 2, 10.7, 100)
-			love.graphics.setColor(255, 255, 255, 255);
-			love.graphics.circle("line", Mouse.x, Mouse.y, 11, 100)
-		end
 
-	 	love.graphics.draw(Player.sprite, Player.x, Player.y, Player.angle, 1, 1, Player.width/2, Player.height/2);
+
 
 	 	--local greyscale = gradient { direction = 'horizontal'; {0, 0, 0, 0}; {0, 0, 0, 100}}
 
@@ -772,25 +825,70 @@ function love.load()
 			love.graphics.draw(healthIcon, 75 + elevation, Window.height - 77, 0, 0.35, 0.35)
 		end
 
-		for amo=1,Player.gun.rounds,1 do
-			local elevation = (45 * amo);
-			love.graphics.setColor(0, 0, 0, 50);
-			love.graphics.draw(ammoIcon, 913 - elevation, Window.height - 75, 0, 0.35, 0.35)
-			if(Player.gun.rounds < 3) then love.graphics.setColor(255, 122, 122, 255); else love.graphics.setColor(255, 255, 255, 255); end
-			love.graphics.draw(ammoIcon, 910 - elevation, Window.height - 77, 0, 0.35, 0.35)
+
+		if Player.gun.id == 1 then
+			for amo=1,Player.gun.rounds,1 do
+				if Player.gun.canShoot then
+					local elevation = (45 * amo);
+					love.graphics.setColor(0, 0, 0, 50);
+					love.graphics.draw(ammoIcon, 913 - elevation, Window.height - 78, 0, 0.35, 0.35)
+					if(Player.gun.rounds < 3) then love.graphics.setColor(255, 122, 122, 255); else love.graphics.setColor(255, 255, 255, 255); end
+					love.graphics.draw(ammoIcon, 910 - elevation, Window.height - 80, 0, 0.35, 0.35)
+				end
+			end
+
+			if (Player.gun.rounds <= 0 and Player.gun.canReload) then
+				love.graphics.setColor(0, 0, 0, 50);
+				love.graphics.print("Press R to RELOAD", 633, Window.height - 71);
+				love.graphics.setColor(255, 122, 122, 255);
+				love.graphics.print("Press R to RELOAD", 630, Window.height - 73);
+			elseif Player.gun.canReload == false then
+				love.graphics.setColor(0, 0, 0, 50);
+				love.graphics.print("Reloading...", 673, Window.height - 71);
+				love.graphics.setColor(255, 219, 112, 255);
+				love.graphics.print("Reloading...", 670, Window.height - 73);
+			end
 		end
 
-		if (Player.gun.rounds <= 0 and Player.gun.canReload) then
-			love.graphics.setColor(0, 0, 0, 50);
-			love.graphics.print("Press R to RELOAD", 633, Window.height - 71);
-			love.graphics.setColor(255, 122, 122, 255);
-			love.graphics.print("Press R to RELOAD", 630, Window.height - 73);
-		elseif Player.gun.canReload == false then
-			love.graphics.setColor(0, 0, 0, 50);
-			love.graphics.print("Reloading...", 673, Window.height - 71);
-			love.graphics.setColor(255, 219, 112, 255);
-			love.graphics.print("Reloading...", 670, Window.height - 73);
+		if Player.gun.id == 2 then
+			if Player.gun.roundsAuto > 0 and Player.gun.canShoot then
+				love.graphics.setColor(0, 0, 0, 50);
+				Window.font = love.graphics.newFont("/src/kenpixel_mini_square.ttf", 35)
+				love.graphics.setFont(Window.font, 15)
+				love.graphics.print(Player.gun.roundsAuto.." x "..Player.gun.maxAutoRounds.." Ammo", 643, Window.height - 76);
+				if(Player.gun.roundsAuto < 5) then love.graphics.setColor(255, 122, 122, 255); else love.graphics.setColor(255, 255, 255, 255); end
+				love.graphics.print(Player.gun.roundsAuto.." x "..Player.gun.maxAutoRounds.." Ammo", 640, Window.height - 78);
+				Window.font = love.graphics.newFont("/src/kenpixel_mini_square.ttf", 22)
+				love.graphics.setFont(Window.font, 15)
+			end
+
+				if (Player.gun.roundsAuto <= 0 and Player.gun.canReloadAuto) then
+					if Player.gun.maxAutoRounds > 0 then
+						love.graphics.setColor(0, 0, 0, 50);
+						love.graphics.print("Press R to RELOAD", 633, Window.height - 71);
+						love.graphics.setColor(255, 122, 122, 255);
+						love.graphics.print("Press R to RELOAD", 630, Window.height - 73);
+					else
+						love.graphics.setColor(0, 0, 0, 50);
+						love.graphics.print("Out of ammo", 633, Window.height - 71);
+						love.graphics.setColor(255, 122, 122, 255);
+						love.graphics.print("Out of ammo", 630, Window.height - 73);
+					end
+				elseif Player.gun.canReloadAuto == false then
+					love.graphics.setColor(0, 0, 0, 50);
+					love.graphics.print("Reloading...", 673, Window.height - 71);
+					love.graphics.setColor(255, 219, 112, 255);
+					love.graphics.print("Reloading...", 670, Window.height - 73);
+				end
 		end
+
+		if Player.gun.id == 0 then
+			love.graphics.setColor(0, 0, 0, 50);
+			love.graphics.print("Mike Tyson Style!", 633, Window.height - 71);
+			love.graphics.setColor(200, 200, 200, 255);
+			love.graphics.print("Mike Tyson Style!", 630, Window.height - 73);
+		end
+
 
 		love.graphics.setColor(0, 0, 0, 50);
 		love.graphics.print("Score "..math.floor(Game.score), 96, Window.height - 106);
@@ -856,9 +954,32 @@ function love.load()
 function love.keypressed( key, isrepeat )
 	if(Game.isActive) then
 		if (key == "r" and Player.gun.canReload and Player.canControl) then
-			Player.gun.reloadTime = 0.75;
-			Player.gun.rounds = 0;
-			Player.gun.canReload = false;
+			if Player.gun.id == 1 then
+				Player.gun.reloadTime = 0.65;
+				--Player.gun.rounds = 0;
+				Player.gun.canReload = false;
+				Player.gun.canShoot = false;
+			end
+
+			if Player.gun.id == 2 and Player.gun.maxAutoRounds > 0 then
+				--Player.gun.roundsAuto = 0;
+				Player.gun.reloadTime = 0.85;
+				Player.gun.canReloadAuto = false;
+				Player.gun.canShoot = false;
+				Player.sprite = Player.mode.reloading;
+			end
+		end
+
+		if key == "0" and (Player.gun.id == 2 or Player.gun.id == 1) then
+			swapWeapon(0);
+		end
+
+		if key == "1" and (Player.gun.id == 2 or Player.gun.id == 0) then
+			swapWeapon(1);
+		end
+
+		if key == "2" and (Player.gun.id == 1 or Player.gun.id == 0) then
+			swapWeapon(2);
 		end
 	end
 end
@@ -884,6 +1005,7 @@ function love.keyreleased( key )
 			spawnFart()
 		end
 	end
+
 	if(Game.inDebug) then
 		if key == "x" then
 			spawnTank()
@@ -909,7 +1031,8 @@ end
 
 function love.mousepressed( x, y, button )
 	if(Game.isActive) then
-		if button == 1 and Player.gun.heat <= 0 and Player.gun.rounds > 0 and Player.canControl then
+		if button == 1 and Player.gun.heat <= 0 and Player.gun.rounds > 0 and Player.canControl and Player.gun.id == 1 then
+			if not Player.gun.canShoot then return end
 			local direction = math.atan2(love.mouse.getY() - Player.y, love.mouse.getX() - Player.x);
 
 			pistolX = Player.x + ((10* math.cos(direction)) - (10 * math.sin(direction)));
@@ -1006,6 +1129,36 @@ function twoSec_Timer(dt)
 	Player.immortal = false;
 end
 
+
+function swapWeapon(weaponIndex)
+	if weaponIndex == 0 then
+		Player.gun.id = weaponIndex;
+		Player.sprite = Player.mode.standing;
+		Player.gun.heatp = 0.0;
+		Player.gun.canReload = true;
+		Player.gun.canReloadAuto = true;
+		Player.gun.reloadTime = -1;
+	end
+
+	if weaponIndex == 1 then
+		Player.gun.id = weaponIndex;
+		Player.sprite = Player.mode.armed;
+		Player.gun.heatp = 0.0;
+		Player.gun.canReload = true;
+		Player.gun.canReloadAuto = true;
+		Player.gun.reloadTime = -1;
+	end
+
+	if weaponIndex == 2 then
+		Player.gun.id = weaponIndex;
+		Player.sprite = Player.mode.armed_auto;
+		Player.gun.heatp = 0.15;
+		Player.gun.canReload = true;
+		Player.gun.canReloadAuto = true;
+		Player.gun.reloadTime = -1;
+	end
+end
+
 function spawnTeleporter()
 	--Environment.teleporter.isActive = true
 
@@ -1038,6 +1191,30 @@ function nextMap()
 
 	if Environment.map.index == 2 then
 		Window.background = love.graphics.newImage("/src/tile_09.png")
+		local size = Environment.map.maxX * Environment.map.maxY
+		Environment.map.spriteBatch = love.graphics.newSpriteBatch(Window.background, size)
+		setupSpriteBatch()
+		spawnParticles(love.math.random(10, 30));
+	end
+
+	if Environment.map.index == 3 then
+		Window.background = love.graphics.newImage("/src/tile_06.png")
+		local size = Environment.map.maxX * Environment.map.maxY
+		Environment.map.spriteBatch = love.graphics.newSpriteBatch(Window.background, size)
+		setupSpriteBatch()
+		spawnParticles(love.math.random(10, 30));
+	end
+
+	if Environment.map.index == 4 then
+		Window.background = love.graphics.newImage("/src/tile_86.png")
+		local size = Environment.map.maxX * Environment.map.maxY
+		Environment.map.spriteBatch = love.graphics.newSpriteBatch(Window.background, size)
+		setupSpriteBatch()
+		spawnParticles(love.math.random(10, 30));
+	end
+
+	if Environment.map.index == 5 then
+		Window.background = love.graphics.newImage("/src/tile_19.png")
 		local size = Environment.map.maxX * Environment.map.maxY
 		Environment.map.spriteBatch = love.graphics.newSpriteBatch(Window.background, size)
 		setupSpriteBatch()
@@ -1119,7 +1296,7 @@ function createParticle()
 	end
 
 
-	local pSprite = "/src/tile_"..love.math.random(0, 12)..".png";
+	local pSprite = "/src/Particles/tile_"..love.math.random(0, 25)..".png";
 
 
 	table.insert(Environment.map.particles, {
@@ -1173,7 +1350,7 @@ function spawnPickup(x, y)
 	--local pY = love.math.random(-32, Window.height + 32);
 	local pX = x
 	local pY = y
-	local pType = love.math.random(0, 1);
+	local pType = love.math.random(0, 2);
 	local pAngle = love.math.random(0, 1);
 
 	local pSprite = nil;
@@ -1187,6 +1364,10 @@ function spawnPickup(x, y)
 		pSprite = "/src/genericItem_color_090.png";
 		pWidth = 40
 		pHeight = 40
+	elseif(pType == 2) then
+		pSprite = "/src/genericItem_color_096.png";
+		pWidth = 36
+		pHeight = 36
 	end
 
 	table.insert(Pickups.instances, {
@@ -1206,8 +1387,11 @@ function getEnemy()
 	local enemyUnlocked = 0;
 	if Game.score > 1000 then enemyUnlocked = 1; end 
 	if Game.score > 2000 then enemyUnlocked = 2; end
-	if Game.score > 3000 then enemyUnlocked = 3; end
-	if Game.score > 4500 then enemyUnlocked = 4; end
+	if Game.score > 3500 then enemyUnlocked = 3; end
+	if Game.score > 5000 then enemyUnlocked = 4; end
+	if Game.score > 7500 then enemyUnlocked = 5; end
+	if Game.score > 8000 then enemyUnlocked = 6; end
+	if Game.score > 10000 then enemyUnlocked = 7; end
 	local enemyType = love.math.random(0, enemyUnlocked);
 	return enemyType;
 end
@@ -1291,10 +1475,10 @@ function spawnEnemy()
 		eScoreMulti = 1.5;
 		eWeight = 80/2;
 	elseif enemyType == 3 then
-		eSprite = love.graphics.newImage( "/src/soldier1_gun.png" );
+		eSprite = love.graphics.newImage( "/src/manBlue_gun.png" );
 		eSpeed = love.math.random(40, 55);
-		eHealth = 175;
-		eDropRate = 35;
+		eHealth = 150;
+		eDropRate = 25;
 		eCanShoot = true;
 		eHeatp = 1.5
 		eWSpeed = 150;
@@ -1309,6 +1493,32 @@ function spawnEnemy()
 		eHeatp = 1.0;
 		eWSpeed = 300;
 		eScoreMulti = 1.8;
+		eWeight = 40/2;
+	elseif enemyType == 5 then
+		eSprite = love.graphics.newImage( "/src/womanGreen_hold.png" );
+		eSpeed = love.math.random(55, 75);
+		eHealth = 150;
+		eDropRate = 10;
+		eCanShoot = false;
+		eScoreMulti = 1.3;
+		eWeight = 40/2;
+	elseif enemyType == 6 then
+		eSprite = love.graphics.newImage( "/src/soldier1_machine.png" );
+		eSpeed = love.math.random(40, 55);
+		eHealth = 175;
+		eDropRate = 35;
+		eCanShoot = true;
+		eHeatp = 1.3
+		eWSpeed = 175;
+		eScoreMulti = 1.6;
+		eWeight = 60/2;
+	elseif enemyType == 7 then
+		eSprite = love.graphics.newImage( "/src/manBrown_hold.png" );
+		eSpeed = love.math.random(55, 75);
+		eHealth = 150;
+		eDropRate = 42;
+		eCanShoot = false;
+		eScoreMulti = 1.2;
 		eWeight = 40/2;
 	end
 
