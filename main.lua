@@ -364,7 +364,8 @@ function love.load()
 
 		    for r, t in ipairs(Enemy.tanks.instances) do
 		    	if rectangleCollision(t.x - (t.width/2), t.y - (t.height/2), t.width, t.height, Player.x, Player.y, Player.width, Player.height) and t.hit == false then
-		    		Player.lifes.amount = Player.lifes.amount - 2
+		    		Player.lifes.amount = 0
+		    		checkPlayerHealth();
 		    		t.hit = true;
 		    	end
 
@@ -686,12 +687,12 @@ function love.load()
 		    	Environment.blackbar.y2 = Environment.blackbar.y2 + Environment.blackbar.speed * dt;
 
 		    	if Environment.blackbar.y1 + Environment.blackbar.height <= 0 then
-		    		Environment.map.scoreNeeded = Environment.map.scoreNeeded * 2;
+		    		Environment.map.scoreNeeded = Environment.map.scoreNeeded + love.math.random(4000, 6000);
 		    		Environment.blackbar.animation = "none";
 		    		Environment.teleporter.isActive = false;
 		    		Enemy.canSpawn = true;
 		    		Player.canControl = true;
-		    		Player.sprite = Player.mode.armed;
+		    		if Player.gun.id == 1 then Player.sprite = Player.mode.armed; elseif Player.gun.id == 2 then Player.sprite = Player.mode.armed_auto; end
 		    	end
 		    end
 		--[[ -------- ]]--
