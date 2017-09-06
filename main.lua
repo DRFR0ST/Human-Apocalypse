@@ -414,6 +414,7 @@ function love.load()
 		    			--Pickups.respawnTime = love.math.random(10.0, 30.0)
 		    		elseif h.pickup == 2 then
 		    			Player.gun.maxAutoRounds = Player.gun.maxAutoRounds + love.math.random(1, 6);
+		    			table.remove(Pickups.instances, g);
 		    		end
 		    	end
 
