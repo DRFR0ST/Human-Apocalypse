@@ -1387,10 +1387,18 @@ end
 
 function getEnemy()
 	local enemyUnlocked = 0;
-	if Game.score > 1000 then enemyUnlocked = 1; end 
+	--[[if Game.score > 1000 then enemyUnlocked = 1; end 
 	if Game.score > 2000 then enemyUnlocked = 2; end
 	if Game.score > 3500 then enemyUnlocked = 3; end
 	if Game.score > 5000 then enemyUnlocked = 4; end
+	if Game.score > 7500 then enemyUnlocked = 5; end
+	if Game.score > 8000 then enemyUnlocked = 6; end
+	if Game.score > 10000 then enemyUnlocked = 7; end]]--
+
+	if Environment.map.index >= 0 then enemyUnlocked = 1; end 
+	if Game.score > 2000 then enemyUnlocked = 2; end
+	if Environment.map.index > 0 then enemyUnlocked = 3; end
+	if Environment.map.index > 1 then enemyUnlocked = 4; end
 	if Game.score > 7500 then enemyUnlocked = 5; end
 	if Game.score > 8000 then enemyUnlocked = 6; end
 	if Game.score > 10000 then enemyUnlocked = 7; end
