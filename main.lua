@@ -812,7 +812,7 @@ function love.load()
 	end)
 
 
-		local healthIcon = love.graphics.newImage("src/hudHeart_empty.png");
+		local healthIcon = love.graphics.newImage("src/hudHeart_full.png");
 		local ammoIcon = love.graphics.newImage("src/hudX.png");
 
 	if(Menu.isActive == false)	then	
