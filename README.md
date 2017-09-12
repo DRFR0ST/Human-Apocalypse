@@ -1,11 +1,11 @@
 # Human-Apocalypse
-Zombie shooting Humans, what more should be said..?
+Zombie shooting Humans, what more shall be said..?
 
-Game made using Lua framework, Löve2D (https://love2d.org)
+Game made using Löve2D (https://love2d.org)
 <br>Game assets by Kenney (http://kenney.nl)
 <br><br>
-<img src="http://i.imgur.com/ceHMJCb.png">
+<img src="https://i.imgur.com/FymrMRN.png">
 <br>
 <img src="http://i.imgur.com/JSrWx83.gif">
 <br>
-Stay tuned cuz more info soon!
+PS. Note that your room after a huge party is cleaner than this code :D
